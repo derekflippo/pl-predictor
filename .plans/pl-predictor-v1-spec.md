@@ -307,6 +307,12 @@ the website exists, so the track record grows from as early as possible.
 - **Fixture dates:** openfootball may be slow to update postponed games.
   Matching on team pairs avoids wrong scores. A postponed game may be
   locked days before it is actually played.
+  - *Seen in milestone 1:* openfootball lists upcoming matchweeks on the
+    Saturday at 15:00 (and some midweek games at 20:00) until TV picks
+    are made. Of the 10 matchweek-10 games, 6 were played on Friday or
+    Sunday but were still listed on the Saturday. Milestone 4 should therefore lock a whole
+    matchweek by the morning before its listed Saturday, not rely on
+    exact kickoff times.
   - *To check:* football-data.co.uk may publish an upcoming-fixtures file
     that could cross-check dates.
 - **Scheduled Action reliability:** GitHub can delay or skip scheduled

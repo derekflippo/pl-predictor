@@ -1,9 +1,13 @@
-"""Download Premier League results from football-data.co.uk.
+"""Download match data.
 
-Saves one CSV per season to backend/data/raw/, for example E0_2425.csv for
-the 2024-25 season. Past seasons are downloaded once and then reused. The
-current season is always downloaded again, because new results are added
-to it every week.
+- Results from football-data.co.uk for the Premier League (E0) and the
+  Championship (E1), one CSV per league and season, for example
+  data/raw/E0_2425.csv for the 2024-25 Premier League.
+- This season's Premier League fixtures from openfootball, saved as
+  data/raw/fixtures_2026-27.json.
+
+Past seasons are downloaded once and then reused. The current season's
+files are always downloaded again, because results are added every week.
 
 Usage:
     python backend/download_data.py              # 2000-01 up to the current season
@@ -19,7 +23,10 @@ from datetime import date
 from pathlib import Path
 
 RAW_DIR = Path(__file__).parent / "data" / "raw"
-URL = "https://football-data.co.uk/mmz4281/{code}/E0.csv"  # E0 = Premier League
+RESULTS_URL = "https://football-data.co.uk/mmz4281/{code}/{league}.csv"
+FIXTURES_URL = ("https://raw.githubusercontent.com/openfootball/football.json/"
+                "master/{season}/en.1.json")
+LEAGUES = {"E0": "Premier League", "E1": "Championship"}
 FIRST_SEASON = 2000
 
 
@@ -34,20 +41,33 @@ def season_code(start_year):
     return f"{start_year % 100:02d}{(start_year + 1) % 100:02d}"
 
 
-def download_season(start_year, refresh=False):
-    """Download one season's CSV. Returns 'downloaded' or 'cached'."""
-    code = season_code(start_year)
-    path = RAW_DIR / f"E0_{code}.csv"
-    if path.exists() and not refresh:
-        return "cached"
+def season_name(start_year):
+    """2024 -> '2024-25'."""
+    return f"{start_year}-{(start_year + 1) % 100:02d}"
 
-    request = urllib.request.Request(
-        URL.format(code=code), headers={"User-Agent": "pl-predictor"}
-    )
+
+def fetch(url, path):
+    """Download url to path."""
+    request = urllib.request.Request(url, headers={"User-Agent": "pl-predictor"})
     with urllib.request.urlopen(request, timeout=30) as response:
         path.write_bytes(response.read())
     time.sleep(0.5)  # be polite to the server
+
+
+def download_results(league, start_year, refresh=False):
+    """Download one league's results for one season. Returns 'downloaded' or 'cached'."""
+    code = season_code(start_year)
+    path = RAW_DIR / f"{league}_{code}.csv"
+    if path.exists() and not refresh:
+        return "cached"
+    fetch(RESULTS_URL.format(code=code, league=league), path)
     return "downloaded"
+
+
+def download_fixtures(start_year):
+    """Download one season's Premier League fixture list from openfootball."""
+    season = season_name(start_year)
+    fetch(FIXTURES_URL.format(season=season), RAW_DIR / f"fixtures_{season}.json")
 
 
 def main():
@@ -60,14 +80,29 @@ def main():
 
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     current = current_season_start()
+    failed = False
 
-    for year in range(args.first, current + 1):
-        label = f"{year}-{(year + 1) % 100:02d}"
-        try:
-            status = download_season(year, refresh=args.refresh or year == current)
-            print(f"{label}: {status}")
-        except urllib.error.URLError as error:
-            print(f"{label}: FAILED ({error})")
+    for league, name in LEAGUES.items():
+        counts = {"downloaded": 0, "cached": 0}
+        for year in range(args.first, current + 1):
+            try:
+                status = download_results(league, year,
+                                          refresh=args.refresh or year == current)
+                counts[status] += 1
+            except urllib.error.URLError as error:
+                print(f"{name} {season_name(year)}: FAILED ({error})")
+                failed = True
+        print(f"{name}: {counts['downloaded']} downloaded, {counts['cached']} already here")
+
+    try:
+        download_fixtures(current)
+        print(f"Fixtures {season_name(current)}: downloaded")
+    except urllib.error.URLError as error:
+        print(f"Fixtures {season_name(current)}: FAILED ({error})")
+        failed = True
+
+    if failed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
