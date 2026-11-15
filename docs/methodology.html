@@ -1,0 +1,1091 @@
+<!--
+  Source of the methodology explainer, published as a private claude.ai artifact:
+  https://claude.ai/artifact/X6HrP3fNfrDahR8yVA2Zh7
+  The Artifact tool adds the doctype, <head> and <body> when publishing, so open the
+  link to view it. To update it, edit this file and republish it to the same URL.
+  Milestone 6 will reuse its text and diagrams for the site's "How it works" page.
+-->
+<title>PL Predictor Methodology</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+  svg: { fontCache: 'local' },
+  options: { enableMenu: false },
+  startup: {
+    ready: function () {
+      MathJax.startup.defaultReady();
+      MathJax.startup.promise.then(function () { if (window.__mjReady) window.__mjReady(); });
+    }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>
+<style>
+/* Layout: one reading column (~68ch) with a sticky section index on wide screens; figures widen to 880px */
+:root {
+  --bg: #f3f6f2;
+  --surface: #fdfefc;
+  --ink: #131a14;
+  --ink-2: #48534a;
+  --muted: #747f76;
+  --rule: #dbe2da;
+  --rule-strong: #c2ccc3;
+  --accent: #1c6a46;
+  --accent-soft: #e2efe6;
+  --s-home: #2a78d6;
+  --s-draw: #eb6834;
+  --s-away: #1baf7a;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1310; --surface: #171c18; --ink: #e7ece6; --ink-2: #b3bdb4; --muted: #849087;
+    --rule: #2a332c; --rule-strong: #3a453c; --accent: #5cc28e; --accent-soft: #1a2b20;
+    --s-home: #3987e5; --s-draw: #d95926; --s-away: #199e70; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1310; --surface: #171c18; --ink: #e7ece6; --ink-2: #b3bdb4; --muted: #849087;
+  --rule: #2a332c; --rule-strong: #3a453c; --accent: #5cc28e; --accent-soft: #1a2b20;
+  --s-home: #3987e5; --s-draw: #d95926; --s-away: #199e70; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 16.5px; line-height: 1.62;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, input[type="range"]:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
+
+.layout { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 48px; }
+@media (min-width: 1120px) { .layout { grid-template-columns: 210px minmax(0, 1fr); } }
+main { min-width: 0; max-width: 880px; }
+.prose { max-width: 68ch; }
+
+/* index: sticky sidebar on wide screens, a compact list inside the header on narrow ones */
+.toc { display: none; }
+.toc-inline { margin-top: 22px; }
+@media (min-width: 1120px) { .toc-inline { display: none; } }
+@media (min-width: 1120px) { .toc { display: block; position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; padding-top: 48px; max-height: 100vh; overflow-y: auto; } }
+.toc h2, .toc-inline h2 { font-family: var(--f-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.toc ol, .toc-inline ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.toc ol { flex-direction: column; gap: 2px; }
+.toc a, .toc-inline a { display: flex; gap: 8px; text-decoration: none; color: var(--ink-2); font-size: 14px; padding: 3px 0; }
+.toc a span, .toc-inline a span { font-family: var(--f-mono); color: var(--muted); font-size: 12.5px; min-width: 1.6em; padding-top: 1px; }
+.toc a:hover, .toc-inline a:hover { color: var(--accent); }
+
+/* type */
+h1, h2 { font-family: var(--f-display); font-weight: 700; letter-spacing: 0.01em; text-wrap: balance; line-height: 1.05; }
+h1 { font-size: clamp(2.6rem, 7vw, 4.1rem); margin: 0 0 18px; text-transform: uppercase; }
+h2 { font-size: clamp(1.9rem, 4.2vw, 2.45rem); margin: 0 0 14px; display: flex; gap: 14px; align-items: baseline; text-transform: uppercase; }
+h2 .num { font-family: var(--f-mono); font-size: 0.5em; font-weight: 500; color: var(--accent); letter-spacing: 0; }
+h3 { font-size: 1.12rem; font-weight: 600; margin: 34px 0 8px; text-wrap: balance; }
+p { margin: 0 0 14px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; }
+.lede { font-size: 1.16rem; color: var(--ink-2); max-width: 62ch; }
+code, .mono { font-family: var(--f-mono); font-size: 0.9em; }
+code { background: var(--accent-soft); color: var(--ink); padding: 1px 5px; border-radius: 4px; }
+.num-tab { font-variant-numeric: tabular-nums; }
+ul, ol.steps { padding-left: 1.3em; margin: 0 0 14px; }
+li { margin-bottom: 6px; }
+strong { font-weight: 600; }
+
+header.hero { padding-block: 40px 30px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
+section { padding-block: 44px 8px; border-bottom: 1px solid var(--rule); }
+section:last-of-type { border-bottom: 0; }
+
+/* status + tags */
+.status { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-top: 22px; }
+.status div { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; font-size: 14.5px; min-width: 0; }
+.status b { display: block; font-family: var(--f-mono); font-weight: 500; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.tag { display: inline-block; font-family: var(--f-mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; vertical-align: 2px; white-space: nowrap; }
+.tag.real { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
+.tag.ex { background: transparent; color: var(--ink-2); border: 1px dashed var(--rule-strong); }
+
+/* formulas */
+.formula { overflow-x: auto; overflow-y: hidden; padding: 4px 0; margin: 8px 0 6px; }
+.formula mjx-container[display="true"] { margin: 0.6em 0 !important; }
+mjx-container { color: var(--ink); }
+dl.where { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 4px 0 18px; font-size: 15px; color: var(--ink-2); }
+dl.where dt { color: var(--ink); text-align: right; }
+dl.where dd { margin: 0; }
+
+/* figures */
+figure { margin: 22px 0 26px; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; }
+figcaption { font-size: 14.5px; color: var(--ink-2); margin-top: 10px; max-width: 70ch; }
+.scroll-x { overflow-x: auto; }
+.scroll-x > svg { display: block; width: 100%; height: auto; }
+.diagram { color: var(--ink-2); }
+.diagram text { fill: var(--ink); font-family: var(--f-body); font-size: 13px; }
+.diagram .small { font-size: 11.5px; fill: var(--muted); }
+.diagram .title { font-weight: 600; font-size: 14px; }
+.diagram .box { fill: var(--surface); stroke: var(--rule-strong); stroke-width: 1.5; }
+.diagram .box-hi { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+.diagram .line { stroke: var(--ink-2); stroke-width: 1.6; fill: none; }
+.diagram .dash { stroke-dasharray: 5 4; }
+.diagram .accent-stroke { stroke: var(--accent); }
+.diagram .fill-rule { fill: var(--rule); }
+.diagram .fill-soft { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.2; }
+.diagram .fill-ink { fill: var(--ink); }
+.diagram .on-ink { fill: var(--surface); }
+.diagram .dot { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.diagram .dot-hi { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+
+/* charts */
+.chart-wrap { position: relative; }
+.chart text { fill: var(--muted); font-family: var(--f-body); font-size: 12px; }
+.chart .label { fill: var(--ink); font-size: 12.5px; }
+.chart .label-strong { fill: var(--ink); font-size: 12.5px; font-weight: 600; }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.chart .baseline { stroke: var(--rule-strong); stroke-width: 1.5; }
+.chart .guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart .crosshair { stroke: var(--ink-2); stroke-width: 1; }
+.chart .series-home { stroke: var(--s-home); }
+.chart .series-draw { stroke: var(--s-draw); }
+.chart .series-away { stroke: var(--s-away); }
+.chart .ink-line { stroke: var(--ink); }
+.chart path.l { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .bar { fill: var(--s-home); }
+.chart .bar.partial { fill-opacity: 0.4; }
+.chart .bar.dim { fill-opacity: 0.45; }
+.chart .hit { fill: transparent; cursor: crosshair; }
+.chart .mk { stroke: var(--surface); stroke-width: 2; }
+.chart .mk.home { fill: var(--s-home); } .chart .mk.draw { fill: var(--s-draw); } .chart .mk.away { fill: var(--s-away); } .chart .mk.ink { fill: var(--ink); }
+.tip {
+  position: absolute; pointer-events: none; z-index: 2;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--rule-strong);
+  border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1.45;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.tip .k { color: var(--ink-2); }
+.sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+.sw.home { background: var(--s-home); } .sw.draw { background: var(--s-draw); } .sw.away { background: var(--s-away); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--ink-2); margin: 0 0 8px; }
+
+/* explorers */
+.explorer { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 18px; margin: 22px 0 26px; }
+.explorer h4 { margin: 0 0 4px; font-size: 15px; font-weight: 600; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.explorer .hint { font-size: 14px; color: var(--ink-2); margin: 0 0 14px; }
+.controls { display: grid; gap: 12px 22px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 14px; }
+.ctl { display: grid; gap: 4px; min-width: 0; }
+.ctl label { font-size: 13.5px; color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; }
+.ctl output { font-family: var(--f-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 12px; border: 0; padding: 0; }
+.chips legend { font-size: 13.5px; color: var(--ink-2); margin-bottom: 6px; padding: 0; width: 100%; }
+.chips label { position: relative; }
+.chips input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.chips span { display: inline-block; font-size: 13.5px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--rule-strong); color: var(--ink-2); background: var(--bg); cursor: pointer; }
+.chips input:checked + span { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.chips input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.calc { overflow-x: auto; min-height: 3.2em; }
+.calc mjx-container[display="true"] { margin: 0.35em 0 !important; text-align: left !important; }
+.readout { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 14.5px; margin: 6px 0 12px; font-variant-numeric: tabular-nums; }
+.readout b { font-weight: 600; }
+.up { color: var(--accent); } .down { color: var(--ink-2); }
+.stack { display: flex; gap: 2px; height: 30px; border-radius: 6px; overflow: hidden; margin: 6px 0 6px; background: var(--surface); }
+.stack div { min-width: 0; }
+.stack .h { background: var(--s-home); } .stack .d { background: var(--s-draw); } .stack .a { background: var(--s-away); }
+.stack-labels { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; margin-bottom: 12px; }
+
+/* tables */
+.table-wrap { overflow-x: auto; margin: 14px 0 20px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; color: var(--ink-2); font-size: 13px; letter-spacing: 0.02em; border-bottom: 1.5px solid var(--rule-strong); }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+details { margin-top: 10px; }
+summary { cursor: pointer; font-size: 14px; color: var(--accent); }
+
+/* feature cards */
+.cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); margin: 18px 0 24px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.card h4 { margin: 0; font-family: var(--f-mono); font-size: 14px; font-weight: 500; color: var(--accent); overflow-wrap: anywhere; }
+.card p { margin: 0; font-size: 14.5px; }
+.card .k { display: inline-block; font-size: 11.5px; font-family: var(--f-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); min-width: 4.6em; }
+
+.callout { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; margin: 18px 0; color: var(--ink-2); max-width: 68ch; }
+footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px; color: var(--muted); }
+</style>
+
+<div class="layout">
+  <nav class="toc" aria-label="Sections">
+    <h2>On this page</h2>
+    <ol>
+      <li><a href="#big-picture"><span>01</span>The big picture</a></li>
+      <li><a href="#data"><span>02</span>The data</a></li>
+      <li><a href="#time"><span>03</span>Walking through time</a></li>
+      <li><a href="#elo"><span>04</span>Elo ratings</a></li>
+      <li><a href="#features"><span>05</span>The features</a></li>
+      <li><a href="#model"><span>06</span>Logistic regression</a></li>
+      <li><a href="#judging"><span>07</span>Judging the model</a></li>
+      <li><a href="#checks"><span>08</span>Checks before the model</a></li>
+      <li><a href="#decisions"><span>09</span>Decisions to double-check</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <p class="eyebrow">pl-predictor · methodology · plan as of 14 Nov 2026</p>
+      <h1>How the predictor will work</h1>
+      <p class="lede">The predictor turns 26 years of match results into three numbers for every upcoming Premier League game: the chance of a home win, a draw and an away win. This page goes through each step in the order the code runs, so you can check that each choice makes sense.</p>
+      <div class="status">
+        <div><b>Built</b>Data pipeline: results, fixtures, team names (milestones 0 and 1).</div>
+        <div><b>Planned</b>Features and Elo (milestone 2), then the model (milestone 3). Nothing from section 3 onward is built yet.</div>
+        <div><b>How to read the numbers</b><span class="tag real">Real data</span> comes from our downloaded matches. <span class="tag ex">Example</span> numbers only show how a step works.</div>
+      </div>
+      <nav class="toc-inline" aria-label="Sections">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#big-picture"><span>01</span>The big picture</a></li>
+          <li><a href="#data"><span>02</span>The data</a></li>
+          <li><a href="#time"><span>03</span>Walking through time</a></li>
+          <li><a href="#elo"><span>04</span>Elo ratings</a></li>
+          <li><a href="#features"><span>05</span>The features</a></li>
+          <li><a href="#model"><span>06</span>Logistic regression</a></li>
+          <li><a href="#judging"><span>07</span>Judging the model</a></li>
+          <li><a href="#checks"><span>08</span>Checks before the model</a></li>
+          <li><a href="#decisions"><span>09</span>Decisions to double-check</a></li>
+        </ol>
+      </nav>
+    </header>
+
+    <!-- 01 -->
+    <section id="big-picture">
+      <h2><span class="num">01</span>The big picture</h2>
+      <div class="prose">
+        <p>The system has three layers. Only the last one learns from data. The first two are fixed rules that turn the match history into numbers the model can use.</p>
+      </div>
+      <figure>
+        <div class="panel scroll-x">
+          <svg class="diagram" viewBox="0 0 980 170" role="img" aria-label="Pipeline: downloaded results flow through a date-by-date walk that computes Elo and form, into a feature table, into logistic regression, which outputs home, draw and away probabilities." style="min-width: 760px">
+            <defs><marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+            <rect class="box" x="15" y="55" width="150" height="70" rx="8"/>
+            <text class="title" x="90" y="85" text-anchor="middle">Downloaded results</text>
+            <text class="small" x="90" y="105" text-anchor="middle">24,512 matches</text>
+            <rect class="box" x="215" y="55" width="150" height="70" rx="8"/>
+            <text class="title" x="290" y="85" text-anchor="middle">Walk through time</text>
+            <text class="small" x="290" y="105" text-anchor="middle">Elo and form, by date</text>
+            <rect class="box" x="415" y="55" width="150" height="70" rx="8"/>
+            <text class="title" x="490" y="85" text-anchor="middle">Feature table</text>
+            <text class="small" x="490" y="105" text-anchor="middle">~30 numbers per match</text>
+            <rect class="box-hi" x="615" y="55" width="150" height="70" rx="8"/>
+            <text class="title" x="690" y="85" text-anchor="middle">Logistic regression</text>
+            <text class="small" x="690" y="105" text-anchor="middle">learns the weights</text>
+            <rect class="box" x="815" y="55" width="150" height="70" rx="8"/>
+            <text class="title" x="890" y="85" text-anchor="middle">Three probabilities</text>
+            <text class="small" x="890" y="105" text-anchor="middle">home · draw · away</text>
+            <line class="line" x1="169" y1="90" x2="211" y2="90" marker-end="url(#arA)"/>
+            <line class="line" x1="369" y1="90" x2="411" y2="90" marker-end="url(#arA)"/>
+            <line class="line" x1="569" y1="90" x2="611" y2="90" marker-end="url(#arA)"/>
+            <line class="line" x1="769" y1="90" x2="811" y2="90" marker-end="url(#arA)"/>
+            <text class="small" x="190" y="40" text-anchor="middle">in date order</text>
+            <text class="small" x="390" y="40" text-anchor="middle">one row per match</text>
+            <text class="small" x="590" y="40" text-anchor="middle">training rows</text>
+            <text class="small" x="790" y="40" text-anchor="middle">per game</text>
+            <text class="small" x="290" y="150" text-anchor="middle">a formula, not trained</text>
+            <text class="small" x="690" y="150" text-anchor="middle" style="fill: var(--accent)">the only part that is trained</text>
+          </svg>
+        </div>
+        <figcaption>The pipeline from raw results to predictions. Milestone 2 builds the second and third boxes; milestone 3 builds the fourth.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Layer</th><th>What it is</th><th>Learns from data?</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Elo ratings</strong></td><td>A formula that updates each team's strength rating after every game</td><td>No. Its 4 settings are tuned once.</td></tr>
+            <tr><td><strong>Features</strong></td><td>About 30 numbers per match that describe both teams before kickoff. Elo is one of them.</td><td>No</td></tr>
+            <tr><td><strong>Logistic regression</strong></td><td>Turns a match's features into three probabilities</td><td>Yes. Training finds one weight per feature for each outcome.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="data">
+      <h2><span class="num">02</span>The data</h2>
+      <div class="prose">
+        <ul>
+          <li><strong>Results</strong> come from football-data.co.uk: <span class="num-tab">9,980</span> Premier League and <span class="num-tab">14,532</span> Championship matches since August 2000, with scores, shots and betting odds. <span class="tag real">Real data</span></li>
+          <li><strong>The schedule</strong> for this season comes from openfootball: dates, kickoff times and matchweeks for all 380 games.</li>
+          <li><strong>Team names</strong> differ between the two sources ("Manchester United FC" against "Man United"). A table maps 56 openfootball spellings to 37 football-data names. It was built by matching scored games between the sources.</li>
+        </ul>
+        <p>Each row in the results table describes a match <em>after</em> it ended. The model can't use those numbers to predict the same match, because nobody knows the score before kickoff. The next three sections turn the history into numbers that were known before each kickoff.</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="time">
+      <h2><span class="num">03</span>Walking through time</h2>
+      <div class="prose">
+        <p>The code goes through all matches in date order, one date at a time. For each date it does three steps, always in this order:</p>
+        <ol class="steps">
+          <li><strong>Read</strong> each team's current state: rating, recent games, last match date.</li>
+          <li><strong>Record</strong> one feature row for each game on that date.</li>
+          <li><strong>Apply</strong> that date's results: update the ratings and add the games to each team's recent list.</li>
+        </ol>
+      </div>
+      <figure>
+        <div class="panel scroll-x">
+          <svg class="diagram" viewBox="0 0 790 250" role="img" aria-label="For each date the code reads state, records rows, then applies results. The next date starts from the updated state. A date's results never flow back into that date's rows." style="min-width: 640px">
+            <defs><marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+            <text class="title" x="10" y="97">Sat 21 Nov</text>
+            <text class="title" x="10" y="207">Sun 22 Nov</text>
+            <g>
+              <rect class="box" x="125" y="70" width="180" height="44" rx="7"/><text x="215" y="89" text-anchor="middle" class="title">1 · Read state</text><text x="215" y="106" text-anchor="middle" class="small">ratings, form, rest</text>
+              <rect class="box" x="355" y="70" width="180" height="44" rx="7"/><text x="445" y="89" text-anchor="middle" class="title">2 · Record rows</text><text x="445" y="106" text-anchor="middle" class="small">features for each game</text>
+              <rect class="box" x="585" y="70" width="180" height="44" rx="7"/><text x="675" y="89" text-anchor="middle" class="title">3 · Apply results</text><text x="675" y="106" text-anchor="middle" class="small">update ratings and form</text>
+              <line class="line" x1="308" y1="92" x2="351" y2="92" marker-end="url(#arB)"/>
+              <line class="line" x1="538" y1="92" x2="581" y2="92" marker-end="url(#arB)"/>
+            </g>
+            <g>
+              <rect class="box" x="125" y="180" width="180" height="44" rx="7"/><text x="215" y="199" text-anchor="middle" class="title">1 · Read state</text><text x="215" y="216" text-anchor="middle" class="small">includes Saturday's results</text>
+              <rect class="box" x="355" y="180" width="180" height="44" rx="7"/><text x="445" y="199" text-anchor="middle" class="title">2 · Record rows</text><text x="445" y="216" text-anchor="middle" class="small">features for each game</text>
+              <rect class="box" x="585" y="180" width="180" height="44" rx="7"/><text x="675" y="199" text-anchor="middle" class="title">3 · Apply results</text><text x="675" y="216" text-anchor="middle" class="small">update ratings and form</text>
+              <line class="line" x1="308" y1="202" x2="351" y2="202" marker-end="url(#arB)"/>
+              <line class="line" x1="538" y1="202" x2="581" y2="202" marker-end="url(#arB)"/>
+            </g>
+            <path class="line" d="M675,117 V147 H215 V176" marker-end="url(#arB)"/>
+            <text class="small" x="445" y="140" text-anchor="middle">the next date starts from the updated state</text>
+            <path class="line dash" d="M675,67 V40 H445 V66" marker-end="url(#arB)"/>
+            <line class="line" x1="553" y1="33" x2="567" y2="47" style="stroke: var(--ink); stroke-width: 2.2"/>
+            <line class="line" x1="567" y1="33" x2="553" y2="47" style="stroke: var(--ink); stroke-width: 2.2"/>
+            <text class="small" x="560" y="24" text-anchor="middle">blocked: a date's results never reach that date's rows</text>
+          </svg>
+        </div>
+        <figcaption>The order of the three steps is what stops a match's own result from leaking into its features.</figcaption>
+      </figure>
+      <div class="prose">
+        <p><strong>Why this matters.</strong> <em>Data leakage</em> means a feature contains information from after kickoff. A model trained on leaked data looks excellent in testing and fails on real games, because real games never give it that information.</p>
+        <p><strong>Why a whole date at a time.</strong> Home advantage uses the league's recent results (section 4). If the 15:00 results were applied before the 17:30 game's row was recorded, that row would contain information from the same afternoon.</p>
+        <p><strong>How we test it.</strong> Change the result of the last match in the data, rebuild the table, and check that every earlier row is exactly the same.</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="elo">
+      <h2><span class="num">04</span>Elo ratings</h2>
+      <div class="prose">
+        <p>Elo gives each team one number for its strength. Every team starts at 1500 in August 2000, and the formula updates both teams after each game. An upset moves the ratings a lot. An expected result moves them a little. We calculate the ratings ourselves from the results; they aren't downloaded.</p>
+
+        <h3>Step 1: the expected score</h3>
+        <p>Before a match, the rating gap gives an expected result for the home team:</p>
+      </div>
+      <div class="formula">\[ E_{\text{home}} = \frac{1}{1 + 10^{-\left(R_{\text{home}} \,+\, H \,-\, R_{\text{away}}\right)/400}} \]</div>
+      <dl class="where prose">
+        <dt>\(E_{\text{home}}\)</dt><dd>expected score for the home team, between 0 and 1</dd>
+        <dt>\(R_{\text{home}}, R_{\text{away}}\)</dt><dd>the two ratings before the match</dd>
+        <dt>\(H\)</dt><dd>home advantage in rating points (step 4)</dd>
+        <dt>\(400\)</dt><dd>sets the scale: a 400-point gap gives 0.91, and a gap of 0 gives 0.5</dd>
+      </dl>
+      <div class="callout">The expected score counts a win as 1 and a draw as 0.5. It is not the chance of winning. Logistic regression (section 6) turns the ratings into chances of a win, a draw and a loss.</div>
+
+      <div class="prose">
+        <h3>Step 2: the win-margin multiplier</h3>
+        <p>Bigger wins move ratings more, but each extra goal adds less:</p>
+      </div>
+      <div class="formula">\[ G = \begin{cases} 1 &amp; \text{draw or 1-goal win} \\[2pt] 1.5 &amp; \text{2-goal win} \\[2pt] \dfrac{11 + N}{8} &amp; \text{win by } N \ge 3 \text{ goals} \end{cases} \]</div>
+      <div class="prose">
+        <p>These values come from the World Football Elo ratings. A 3–0 counts 1.75 and a 7–0 counts 2.25, so one thrashing doesn't dominate a team's rating.</p>
+
+        <h3>Step 3: the update</h3>
+      </div>
+      <div class="formula">\[ \Delta = K \cdot G \cdot \left(S - E_{\text{home}}\right) \qquad R_{\text{home}} \leftarrow R_{\text{home}} + \Delta \qquad R_{\text{away}} \leftarrow R_{\text{away}} - \Delta \]</div>
+      <dl class="where prose">
+        <dt>\(S\)</dt><dd>the actual score: 1 for a home win, 0.5 for a draw, 0 for an away win</dd>
+        <dt>\(K\)</dt><dd>how fast ratings move (tuned in step 7)</dd>
+        <dt>\(\Delta\)</dt><dd>the rating change. The home team gains exactly what the away team loses.</dd>
+      </dl>
+
+      <div class="explorer" id="eloExplorer">
+        <h4>Try it: one Elo update <span class="tag ex">Example</span></h4>
+        <p class="hint">Start values are the Arsenal (home, 1820) against Leeds (away, 1610) example. Move the sliders, then pick a result.</p>
+        <div class="controls">
+          <div class="ctl"><label for="homeR">Home team rating <output id="homeROut" for="homeR">1820</output></label><input type="range" id="homeR" min="1300" max="2000" step="10" value="1820"></div>
+          <div class="ctl"><label for="awayR">Away team rating <output id="awayROut" for="awayR">1610</output></label><input type="range" id="awayR" min="1300" max="2000" step="10" value="1610"></div>
+          <div class="ctl"><label for="homeAdv">Home advantage H <output id="homeAdvOut" for="homeAdv">56</output></label><input type="range" id="homeAdv" min="-20" max="100" step="1" value="56"></div>
+          <div class="ctl"><label for="kVal">Speed K <output id="kValOut" for="kVal">20</output></label><input type="range" id="kVal" min="10" max="40" step="1" value="20"></div>
+        </div>
+        <div class="calc" id="texE" aria-live="polite"></div>
+        <div class="chart-wrap" id="eloChartWrap">
+          <svg class="chart" id="eloChart" viewBox="0 0 640 270" role="img" aria-label="Expected home score rises along an S-curve as the rating gap grows, from near 0 at minus 600 to near 1 at plus 600. A marker shows the current gap."></svg>
+        </div>
+        <fieldset class="chips" id="resultChips">
+          <legend>Result</legend>
+          <label><input type="radio" name="res" value="h1" id="res-h1"><span>Home win 1–0</span></label>
+          <label><input type="radio" name="res" value="h2" id="res-h2" checked><span>Home win 2–0</span></label>
+          <label><input type="radio" name="res" value="h4" id="res-h4"><span>Home win 4–0</span></label>
+          <label><input type="radio" name="res" value="d" id="res-d"><span>Draw 1–1</span></label>
+          <label><input type="radio" name="res" value="a1" id="res-a1"><span>Away win 0–1</span></label>
+          <label><input type="radio" name="res" value="a3" id="res-a3"><span>Away win 0–3</span></label>
+        </fieldset>
+        <div class="calc" id="texD" aria-live="polite"></div>
+        <div class="readout" id="eloReadout"></div>
+      </div>
+
+      <div class="prose">
+        <h3>Step 4: home advantage that changes over time</h3>
+        <p>Before each match, the code measures how well home teams did over the league's last few hundred games, and turns that into rating points:</p>
+      </div>
+      <div class="formula">\[ p = \text{average home score over the league's last } N_{\text{home}} \text{ games} \qquad H = 400 \, \log_{10} \frac{p}{1 - p} \]</div>
+      <div class="prose">
+        <p>This is the expected-score formula run backwards: \(H\) is the boost that makes two equal teams produce the home score we actually saw. For example, \(p = 0.58\) gives \(H \approx 56\) points, and \(p = 0.5\) gives 0.</p>
+      </div>
+      <figure>
+        <div class="panel">
+          <div class="chart-wrap" id="haWrap">
+            <svg class="chart" id="haChart" viewBox="0 0 720 300" role="img" aria-label="Premier League home advantage per season in rating points, 2000-01 to 2026-27. Mostly between 40 and 95, it drops to minus 8 in 2020-21 and is lower since then than before 2019."></svg>
+          </div>
+          <details>
+            <summary>Show the numbers as a table</summary>
+            <div class="table-wrap"><table id="haTable"><thead><tr><th>Season</th><th class="r">Games</th><th class="r">Home win</th><th class="r">Draw</th><th class="r">Away win</th><th class="r">Home score p</th><th class="r">H (points)</th></tr></thead><tbody></tbody></table></div>
+          </details>
+        </div>
+        <figcaption><span class="tag real">Real data</span> Premier League home advantage per season, from each season's results with the formula above. It averaged about 64 points from 2000-01 to 2018-19, fell to −8 in 2020-21 when stadiums were empty, and averaged about 43 in the five full seasons since fans returned. The 92 games played without fans at the end of 2019-20 didn't show the drop, so empty stadiums aren't the whole story. A drifting value handles both cases. The model uses a rolling window of recent games, not whole seasons, so it adjusts during a season. 2026-27 is based on the 100 games played so far.</figcaption>
+      </figure>
+
+      <div class="prose">
+        <h3>Step 5: summer shrink</h3>
+        <p>Every August, each rating moves part of the way back to its league's average:</p>
+      </div>
+      <div class="formula">\[ R \leftarrow \bar{R} + (1 - s)\,\left(R - \bar{R}\right) \]</div>
+      <div class="prose">
+        <p>\(\bar{R}\) is the league average and \(s\), between 0 and 1, is the shrink. With \(s = 0.2\) and an average of 1500, a team at 1900 starts the next season at 1820, and a team at 1350 starts at 1380. <span class="tag ex">Example</span> Squads change over the summer, so last season's gaps are partly gone.</p>
+
+        <h3>Step 6: promoted and relegated teams</h3>
+        <p>Premier League and Championship teams never play each other in our data. So a Championship 1650 and a Premier League 1650 are on different scales, the way 1,650 yen isn't 1,650 dollars. A promoted team's starting rating is converted:</p>
+      </div>
+      <div class="formula">\[ R^{\text{PL}}_{\text{start}} = \bar{R}^{\text{PL}}_{\text{relegated}} + a \left( R^{\text{Ch}} - \bar{R}^{\text{Ch}} \right) \]</div>
+      <dl class="where prose">
+        <dt>\(\bar{R}^{\text{PL}}_{\text{relegated}}\)</dt><dd>average end-of-season rating of the teams relegated that summer</dd>
+        <dt>\(R^{\text{Ch}} - \bar{R}^{\text{Ch}}\)</dt><dd>how far above the Championship average the promoted team was</dd>
+        <dt>\(a\)</dt><dd>how much of that carries over, between 0 and 1 (tuned in step 7)</dd>
+      </dl>
+      <figure>
+        <div class="panel scroll-x">
+          <svg class="diagram" viewBox="0 0 700 290" role="img" aria-label="A promoted team 150 points above the Championship average of 1500 starts in the Premier League at the relegated teams' average of 1420 plus half of 150, which is 1495." style="min-width: 560px">
+            <defs><marker id="arC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+            <text class="title" x="170" y="22" text-anchor="middle">Championship scale</text>
+            <line class="line" x1="170" y1="40" x2="170" y2="250" style="stroke: var(--rule-strong); stroke-width: 2"/>
+            <text class="small" x="160" y="254" text-anchor="end">1400</text><text class="small" x="160" y="184" text-anchor="end">1500</text><text class="small" x="160" y="114" text-anchor="end">1600</text><text class="small" x="160" y="44" text-anchor="end">1700</text>
+            <line class="line dash" x1="170" y1="180" x2="232" y2="180"/>
+            <text x="238" y="184" class="small">average 1500</text>
+            <path class="line" d="M126,75 H120 V180 H126"/>
+            <text x="114" y="132" text-anchor="end" class="title">+150</text>
+            <circle class="dot" cx="170" cy="75" r="6"/>
+            <text x="182" y="66">promoted team 1650</text>
+
+            <text class="title" x="520" y="22" text-anchor="middle">Premier League scale</text>
+            <line class="line" x1="520" y1="40" x2="520" y2="250" style="stroke: var(--rule-strong); stroke-width: 2"/>
+            <text class="small" x="530" y="254">1350</text><text class="small" x="530" y="184">1450</text><text class="small" x="530" y="114">1550</text><text class="small" x="530" y="44">1650</text>
+            <line class="line dash" x1="458" y1="201" x2="520" y2="201"/>
+            <text x="452" y="205" text-anchor="end" class="small">relegated teams' average 1420</text>
+            <path class="line" d="M484,148.5 H490 V201 H484"/>
+            <text x="478" y="179" text-anchor="end" class="title">+75</text>
+            <circle class="dot-hi" cx="520" cy="148.5" r="6"/>
+            <text x="508" y="140" text-anchor="end">starts at 1495</text>
+
+            <line class="line accent-stroke" x1="178" y1="77" x2="510" y2="146" marker-end="url(#arC)" style="stroke-width: 1.8"/>
+            <text x="345" y="98" text-anchor="middle" class="small">promotion: 1420 + 0.5 × 150</text>
+          </svg>
+        </div>
+        <figcaption><span class="tag ex">Example</span> with \(a = 0.5\). With \(a = 0\), every promoted team would start at 1420. If tuning picks \(a = 0\), the Championship data didn't help, and the milestone 2 pull request will say so. Relegated teams go the other way with the same rule. A team arriving from League One, which we don't download, starts at the average of the teams relegated from the Championship that summer.</figcaption>
+      </figure>
+
+      <div class="prose">
+        <h3>Step 7: choosing the four settings</h3>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Setting</th><th>Meaning</th><th>Values tried</th></tr></thead>
+          <tbody>
+            <tr><td>\(K\)</td><td>How fast ratings move</td><td class="num-tab">10, 15, 20, 25, 30, 40</td></tr>
+            <tr><td>\(s\)</td><td>Summer shrink toward the average</td><td class="num-tab">0, 0.1, 0.2, 0.33, 0.5</td></tr>
+            <tr><td>\(N_{\text{home}}\)</td><td>Games used to measure home advantage</td><td class="num-tab">190, 380, 760</td></tr>
+            <tr><td>\(a\)</td><td>How much Championship strength carries over</td><td class="num-tab">0, 0.25, 0.5, 0.75, 1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose">
+        <p>The code tries all 450 combinations (a <em>grid search</em>) and keeps the one whose expected scores were closest to the real results, measured by the mean squared error:</p>
+      </div>
+      <div class="formula">\[ \text{MSE} = \frac{1}{N} \sum_{i=1}^{N} \left( S_i - E_i \right)^2 \]</div>
+      <div class="prose">
+        <p>For example, if \(E = 0.82\) and the home team wins, the error is \((1 - 0.82)^2 = 0.03\). If it loses, the error is \((0 - 0.82)^2 = 0.67\). Lower is better.</p>
+      </div>
+      <figure>
+        <div class="panel scroll-x">
+          <svg class="diagram" viewBox="0 0 790 112" role="img" aria-label="Season timeline: 2000 to 2002 warm-up, 2002 to 2019 used to tune Elo settings, 2019 to 2026 kept for the final test in milestone 3, 2026-27 is live." style="min-width: 620px">
+            <rect class="fill-rule" x="20" y="40" width="55.6" height="36" rx="4"/>
+            <rect class="fill-soft" x="77.6" y="40" width="468.2" height="36" rx="4"/>
+            <rect class="fill-ink" x="547.8" y="40" width="192.4" height="36" rx="4"/>
+            <rect x="742.2" y="40" width="27.8" height="36" rx="4" style="fill: none; stroke: var(--ink-2); stroke-dasharray: 4 3; stroke-width: 1.5"/>
+            <text x="47.8" y="62" text-anchor="middle" class="small" style="fill: var(--ink)">warm-up</text>
+            <text x="311.7" y="62" text-anchor="middle">tune the Elo settings here</text>
+            <text x="644" y="62" text-anchor="middle" class="on-ink">final test (milestone 3)</text>
+            <text x="756" y="30" text-anchor="middle" class="small">live</text>
+            <text class="small" x="20" y="96">2000</text>
+            <text class="small" x="77.6" y="96" text-anchor="middle">2002</text>
+            <text class="small" x="547.8" y="96" text-anchor="middle">2019</text>
+            <text class="small" x="742.2" y="96" text-anchor="middle">2026</text>
+          </svg>
+        </div>
+        <figcaption>Years are the year each season starts. The tuning never looks at 2019-20 or later. Milestone 3 tests the model on those seasons. If they also chose the settings, the test would be graded on games the system had already seen, and the score would look better than it really is.</figcaption>
+      </figure>
+    </section>
+
+    <!-- 05 -->
+    <section id="features">
+      <h2><span class="num">05</span>The features</h2>
+      <div class="prose">
+        <p>Each feature row describes both teams before kickoff. Every per-team feature appears twice, once for the home team and once for the away team, for example <code>home_ppg_5</code> and <code>away_ppg_5</code>. Most form features use a <em>rolling window</em>: an average over the team's last few games before this match.</p>
+      </div>
+      <figure>
+        <div class="panel scroll-x">
+          <svg class="diagram" viewBox="0 0 790 178" role="img" aria-label="A team's last 12 results with the next match on the right. The last-5 window covers the 5 most recent games, 2.0 points per game. The last-10 window covers 10 games and crosses the summer break, 1.7 points per game." style="min-width: 680px">
+            <text class="small" x="124" y="22" text-anchor="middle">2025-26 season</text>
+            <text class="small" x="507" y="22" text-anchor="middle">2026-27 season</text>
+            <line class="line dash" x1="232" y1="12" x2="232" y2="166" style="stroke: var(--muted)"/>
+            <text class="small" x="236" y="166">summer break</text>
+            <g id="chips"></g>
+            <path class="line" d="M398,62 V56 H660 V62"/>
+            <text x="529" y="48" text-anchor="middle">last 5: 10 pts in 5 games = 2.0 per game</text>
+            <path class="line" d="M128,118 V124 H660 V118"/>
+            <text x="394" y="142" text-anchor="middle">last 10: 17 pts in 10 games = 1.7 per game</text>
+            <rect class="box-hi" x="668" y="70" width="110" height="40" rx="6"/>
+            <text x="723" y="95" text-anchor="middle" class="title">vs Leeds</text>
+            <text x="723" y="62" text-anchor="middle" class="small">next match</text>
+            <text x="723" y="128" text-anchor="middle" class="small">uses only the</text>
+            <text x="723" y="142" text-anchor="middle" class="small">games to the left</text>
+          </svg>
+        </div>
+        <figcaption><span class="tag ex">Example</span> Windows count a team's league games in either league and run across the summer break, so in August "last 5" still means 5 real games.</figcaption>
+      </figure>
+
+      <div class="formula">\[ \text{ppg}_5 = \frac{1}{n} \sum_{j=1}^{n} \text{points}_j \qquad n = \min(5,\ \text{games played so far}) \]</div>
+      <div class="formula">\[ \text{vs\_exp}_5 = \frac{1}{n} \sum_{j=1}^{n} \left( S_j - E_j \right) \qquad \text{rest\_days} = \min\left(21,\ d - d_{\text{prev}}\right) \]</div>
+      <div class="prose"><p>Here \(S_j\) and \(E_j\) are the actual and expected score in each recent game, and \(d - d_{\text{prev}}\) is the number of days since the team's previous league game.</p></div>
+
+      <div class="cards">
+        <div class="card"><h4>home_elo, away_elo</h4><p><span class="k">Measures</span>Overall strength, from every result since 2000.</p><p><span class="k">Method</span>The Elo walk in section 4, read before the match.</p><p><span class="k">Example</span>1820 against 1610.</p></div>
+        <div class="card"><h4>ppg_5, ppg_10</h4><p><span class="k">Measures</span>Recent results, the way the league table counts them.</p><p><span class="k">Method</span>Rolling average of points over the last 5 and 10 league games.</p><p><span class="k">Example</span>W W D L W gives 10 points, so 2.0.</p></div>
+        <div class="card"><h4>gf_5, ga_5, gf_10, ga_10</h4><p><span class="k">Measures</span>Attack and defense separately. A 4–3 win and a 1–0 win give the same points.</p><p><span class="k">Method</span>Rolling average of goals scored and conceded.</p><p><span class="k">Example</span>2.1 scored and 0.6 conceded per game.</p></div>
+        <div class="card"><h4>sotf_5, sota_5, sotf_10, sota_10</h4><p><span class="k">Measures</span>Chances created and allowed. Goals involve a lot of luck; shots on target less so.</p><p><span class="k">Method</span>Rolling average of shots on target, using only games with shot data.</p><p><span class="k">Why</span>Stands in for xG, which only exists from 2026-27.</p></div>
+        <div class="card"><h4>vs_exp_5, vs_exp_10</h4><p><span class="k">Measures</span>Form adjusted for opponent strength.</p><p><span class="k">Method</span>Average of actual minus expected score over the window (table below).</p><p><span class="k">Why</span>Easy wins over weak Championship teams were expected, so they barely raise it. This fixes the promoted-team problem.</p></div>
+        <div class="card"><h4>venue_ppg_5</h4><p><span class="k">Measures</span>Form at this kind of venue.</p><p><span class="k">Method</span>Home team: points per game over its last 5 home games. Away team: its last 5 away games.</p><p><span class="k">Why</span>Some teams are much stronger at home.</p></div>
+        <div class="card"><h4>rest_days</h4><p><span class="k">Measures</span>Rest since the last league game.</p><p><span class="k">Method</span>Days between matches, capped at 21 so the summer break doesn't look like extra rest.</p><p><span class="k">Limit</span>Cup and European games aren't in the data.</p></div>
+        <div class="card"><h4>came_up, came_down</h4><p><span class="k">Measures</span>Whether the team changed league since last season.</p><p><span class="k">Method</span>1 or 0, found from which league each team played in.</p><p><span class="k">Why</span>Lets the model learn what the rating conversion misses.</p></div>
+        <div class="card"><h4>games_5, games_10</h4><p><span class="k">Measures</span>How many games a window actually holds.</p><p><span class="k">Method</span>A count, at most 5 or 10.</p><p><span class="k">Why</span>Early in 2000-01, a "last 5" may hold only 2 games. The model should know a number rests on little data.</p></div>
+        <div class="card"><h4>home_advantage, elo_expected</h4><p><span class="k">Measures</span>The match as a whole, not one team.</p><p><span class="k">Method</span>\(H\) from section 4, and the expected home score \(E\) for this match.</p><p><span class="k">Example</span>56 points, and 0.82.</p></div>
+      </div>
+
+      <div class="prose"><h3>Worked example: results above expected</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Recent game</th><th class="r">Expected \(E\)</th><th class="r">Actual \(S\)</th><th class="r">\(S - E\)</th></tr></thead>
+          <tbody>
+            <tr><td>Beat a strong team</td><td class="r">0.30</td><td class="r">1</td><td class="r">+0.70</td></tr>
+            <tr><td>Drew with a weak team</td><td class="r">0.80</td><td class="r">0.5</td><td class="r">−0.30</td></tr>
+            <tr><td>Beat a weak team</td><td class="r">0.85</td><td class="r">1</td><td class="r">+0.15</td></tr>
+            <tr><td><strong>Average</strong></td><td></td><td></td><td class="r"><strong>+0.18</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose">
+        <p><span class="tag ex">Example</span> Positive means better results than Elo predicted against those opponents. This number is close to how much the team's Elo moved over those games, without the win-margin weighting. Milestone 3 will show whether the model gets extra value from it.</p>
+        <h3>Rules for every feature</h3>
+        <ul>
+          <li><strong>Only the past.</strong> Every number for a match on date D comes from matches before D (section 3).</li>
+          <li><strong>Missing values stay empty.</strong> For example, the first weeks of 2000-01, or the one Championship match with no shot data. Milestone 3 decides how to fill them.</li>
+          <li><strong>One code path.</strong> The same code builds rows for past matches and for upcoming games. A test checks that both give the same row for a past match.</li>
+          <li><strong>Both leagues get rows.</strong> Championship rows have a <code>league</code> column. Milestone 3 tests whether training on them helps Premier League predictions.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="model">
+      <h2><span class="num">06</span>The model: logistic regression</h2>
+      <div class="prose">
+        <p>Logistic regression takes the ~30 features of a match and returns three probabilities that add up to 100%: home win, draw, away win. It's the only part of the system that learns from data. Training finds one weight per feature for each outcome, using about 9,000 past Premier League matches.</p>
+        <h3>Why not linear regression?</h3>
+        <p>Linear regression predicts a number along a straight line. Give it a big enough rating gap and the straight line predicts more than 100% or less than 0%, which is impossible for a probability. Logistic regression bends the line into an S-curve that always stays between 0 and 1. It also handles the three outcomes directly. Linear regression would need home, draw and away turned into a made-up number scale.</p>
+      </div>
+      <figure>
+        <div class="panel scroll-x">
+          <svg class="diagram" id="linlog" viewBox="0 0 600 284" role="img" aria-label="A straight line crosses above 100 percent and below 0 percent at the ends; the logistic S-curve stays between 0 and 100 percent." style="min-width: 480px">
+            <rect class="fill-rule" x="70" y="30" width="500" height="41.25" style="opacity: 0.75"/>
+            <rect class="fill-rule" x="70" y="208.75" width="500" height="41.25" style="opacity: 0.75"/>
+            <text x="80" y="55" class="small" style="fill: var(--ink-2)">impossible: above 100%</text>
+            <text x="80" y="235" class="small" style="fill: var(--ink-2)">impossible: below 0%</text>
+            <line x1="70" y1="71.25" x2="570" y2="71.25" class="line" style="stroke: var(--rule-strong)"/>
+            <line x1="70" y1="208.75" x2="570" y2="208.75" class="line" style="stroke: var(--rule-strong)"/>
+            <text x="62" y="75" text-anchor="end" class="small">100%</text>
+            <text x="62" y="144" text-anchor="end" class="small">50%</text>
+            <text x="62" y="213" text-anchor="end" class="small">0%</text>
+            <line x1="70" y1="245.9" x2="570" y2="47.9" class="line dash" style="stroke-width: 2"/>
+            <path id="logCurve" class="line" style="stroke: var(--ink); stroke-width: 2.6"/>
+            <text x="560" y="42" text-anchor="end" style="fill: var(--ink-2)">straight line (linear regression)</text>
+            <text x="300" y="88" text-anchor="end" class="title">S-curve (logistic)</text>
+            <text x="320" y="276" text-anchor="middle" class="small">weaker home team  ←  rating gap  →  stronger home team</text>
+          </svg>
+        </div>
+        <figcaption>Both lines are drawn from made-up numbers to show the shape. Near the middle they agree. At the ends, only the S-curve stays a valid probability.</figcaption>
+      </figure>
+
+      <div class="prose">
+        <h3>How it turns features into probabilities</h3>
+        <p>Each outcome gets a score \(z\): a starting value \(b\) plus each feature \(x\) times its weight \(w\). Then <em>softmax</em> turns the three scores into probabilities:</p>
+      </div>
+      <div class="formula">\[ z_k = b_k + w_{k,1}\,x_1 + w_{k,2}\,x_2 + \dots + w_{k,n}\,x_n \qquad k \in \{\text{home},\ \text{draw},\ \text{away}\} \]</div>
+      <div class="formula">\[ P(k) = \frac{e^{z_k}}{e^{z_{\text{home}}} + e^{z_{\text{draw}}} + e^{z_{\text{away}}}} \]</div>
+      <div class="prose">
+        <p>\(e^{z}\) is always positive, and dividing by the total makes the three add up to 1. In practice one outcome's score can be fixed at 0 as the reference. That gives the same probabilities with fewer weights, so below the draw score is 0. The features are first rescaled to an average of 0 and a spread of 1, so their weights can be compared.</p>
+      </div>
+
+      <div class="explorer" id="modelExplorer">
+        <h4>Try it: a one-feature model <span class="tag ex">Example weights</span></h4>
+        <p class="hint">This toy model uses one feature, the rating gap including home advantage, with weights picked by hand to look realistic. Milestone 3 learns the real weights from ~30 features.</p>
+        <div class="controls">
+          <div class="ctl"><label for="gap2">Rating gap \(x\) <output id="gap2Out" for="gap2">+266</output></label><input type="range" id="gap2" min="-400" max="600" step="5" value="266"></div>
+        </div>
+        <div class="calc" id="texZ" aria-live="polite"></div>
+        <div class="calc" id="texP" aria-live="polite"></div>
+        <div class="stack" id="stack" aria-hidden="true"><div class="h"></div><div class="d"></div><div class="a"></div></div>
+        <div class="stack-labels" id="stackLabels"></div>
+        <div class="legend"><span><i class="sw home"></i>Home win</span><span><i class="sw draw"></i>Draw</span><span><i class="sw away"></i>Away win</span></div>
+        <div class="chart-wrap" id="probWrap">
+          <svg class="chart" id="probChart" viewBox="0 0 660 290" role="img" aria-label="Home-win probability rises with the rating gap, away-win probability falls, and the draw probability is highest when the match is roughly even."></svg>
+        </div>
+        <p class="hint" style="margin: 10px 0 0">The draw score is fixed at 0, yet the draw probability is highest when the match is roughly even and falls as the gap grows. That comes from softmax: when one side's score rises, everything else gets a smaller share.</p>
+      </div>
+
+      <div class="prose">
+        <h3>How it learns: log loss</h3>
+        <p>Training adjusts the weights step by step until the average <em>log loss</em> over the training matches is as low as it can get:</p>
+      </div>
+      <div class="formula">\[ \text{log loss} = -\frac{1}{N} \sum_{i=1}^{N} \ln p_i \]</div>
+      <div class="prose">
+        <p>\(p_i\) is the probability the model gave to what actually happened in match \(i\). A confident wrong prediction costs far more than a cautious one, so the model learns to be honest about uncertainty.</p>
+      </div>
+      <div class="explorer">
+        <h4>Try it: the cost of one prediction</h4>
+        <div class="controls"><div class="ctl"><label for="pTrue">Probability given to what happened <output id="pTrueOut" for="pTrue">60%</output></label><input type="range" id="pTrue" min="1" max="99" step="1" value="60"></div></div>
+        <div class="calc" id="texL" aria-live="polite"></div>
+        <div class="chart-wrap" id="llWrap"><svg class="chart" id="llChart" viewBox="0 0 640 240" role="img" aria-label="The cost of a prediction, minus the natural log of p, is near 0 when p is close to 100 percent and rises steeply as p approaches 0."></svg></div>
+        <p class="hint" style="margin: 10px 0 0">60% costs 0.51, 25% costs 1.39, and 5% costs 3.00. For comparison, giving every outcome 33.3% costs 1.10 every time.</p>
+      </div>
+      <div class="prose">
+        <h3>Keeping the weights sensible: regularization</h3>
+      </div>
+      <div class="formula">\[ \text{minimize} \quad \text{log loss} + \lambda \sum w^2 \]</div>
+      <div class="prose">
+        <p>\(\lambda\) (lambda) sets a penalty for large weights. Without it, the model can fit quirks of past seasons that won't happen again. That's called <em>overfitting</em>. Milestone 3 picks \(\lambda\) by testing on seasons the model didn't train on.</p>
+
+        <h3>Why logistic regression</h3>
+        <ul>
+          <li><strong>Real probabilities.</strong> Its output is exactly what the site shows.</li>
+          <li><strong>Readable weights.</strong> You can say which features moved a prediction. That's what the "key factors" on match cards will use later.</li>
+          <li><strong>Enough data.</strong> It works well with about 9,000 training rows. More complex models usually need more data to beat it.</li>
+          <li><strong>An honest baseline.</strong> It's a standard first model in football prediction, so it sets a fair bar for fancier models.</li>
+          <li><strong>Fast.</strong> It trains in seconds, so the daily update can retrain every day.</li>
+        </ul>
+        <p><strong>Its limit:</strong> each feature's effect on the score \(z\) is a straight line. It can't discover combinations by itself, such as "strong team <em>and</em> tired", unless we build that combination as a feature. That's why a later milestone tries gradient boosting, which can find combinations, using the same evaluation.</p>
+
+        <h3>The draw problem</h3>
+        <p>About a quarter of games end level, but a draw is rarely the single most likely outcome. In the 2,660 games of the test seasons, the bookmakers never once made a draw the favourite. Their highest draw probability was 32.3%. <span class="tag real">Real data</span> Our model will behave the same way. So the site shows all three probabilities, and says "Close call" when the top two are within 5 points, instead of always naming a pick.</p>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section id="judging">
+      <h2><span class="num">07</span>Judging the model</h2>
+      <div class="prose">
+        <p>Milestone 3 scores the model on seasons it never trained on, and compares it with three benchmarks. These are their real scores on the test seasons, 2019-20 to 2025-26 (2,660 matches): <span class="tag real">Real data</span></p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Benchmark</th><th class="r">Accuracy</th><th class="r">Log loss</th></tr></thead>
+          <tbody>
+            <tr><td>Always pick the home team</td><td class="r">43.4%</td><td class="r">—</td></tr>
+            <tr><td>Predict the average shares every game (46.6% / 25.1% / 28.4%, from 2002-03 to 2018-19)</td><td class="r">43.4%</td><td class="r">1.074</td></tr>
+            <tr><td>Bookmakers (average odds, margin removed)</td><td class="r">54.5%</td><td class="r">0.968</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose">
+        <p><strong>Accuracy</strong> is the share of games where the most likely outcome happened. <strong>Log loss</strong> (section 6) rewards honest probabilities, and lower is better. Log loss is the main score. The average-shares benchmark always rates "home" highest, so its accuracy equals always picking home.</p>
+        <p><strong>The goal:</strong> clearly beat the first two, and get as close as we can to the bookmakers. They use injuries, lineups and the money of everyone betting, so matching them would be a strong result. Their probabilities come from the odds:</p>
+      </div>
+      <div class="formula">\[ q_k = \frac{1/\text{odds}_k}{1/\text{odds}_{\text{home}} + 1/\text{odds}_{\text{draw}} + 1/\text{odds}_{\text{away}}} \]</div>
+      <div class="prose">
+        <p>The three \(1/\text{odds}\) add up to more than 1 because of the bookmaker's margin, 4.5% on average in these seasons. Dividing by the total removes it.</p>
+        <h3>Walk-forward testing</h3>
+        <p>For each test season, the model trains on every season before it and is scored on that season. This copies real use: the model always predicts a season it hasn't seen.</p>
+      </div>
+      <figure>
+        <div class="panel scroll-x">
+          <svg class="diagram" viewBox="0 0 790 250" role="img" aria-label="Seven rows, one per test season from 2019-20 to 2025-26. Each row trains on all seasons from 2002-03 up to the season before, and scores on the test season." style="min-width: 640px" id="wfSvg">
+            <rect class="fill-soft" x="150" y="12" width="16" height="12" rx="2"/><text x="172" y="22" class="small" style="fill: var(--ink)">train on</text>
+            <rect class="fill-ink" x="250" y="12" width="16" height="12" rx="2"/><text x="272" y="22" class="small" style="fill: var(--ink)">score on</text>
+            <g id="wfRows"></g>
+          </svg>
+        </div>
+        <figcaption>Years are the year each season starts. Milestone 3 reports the score for each season and the average, next to the three benchmarks.</figcaption>
+      </figure>
+      <div class="prose">
+        <p><strong>Calibration</strong> is the last check. When the model says 60%, those games should go that way about 60% of the time. Milestone 3 plots this.</p>
+      </div>
+    </section>
+
+    <!-- 08 -->
+    <section id="checks">
+      <h2><span class="num">08</span>Checks before the model</h2>
+      <div class="prose">
+        <p>These four checks run at the end of milestone 2. They confirm the Elo code works, so a bug can't hide inside the model in milestone 3. They don't measure how good the predictions are; section 7 does that.</p>
+        <ol class="steps">
+          <li><strong>End-of-season Elo against the final table.</strong> For each finished season, rank teams by their Elo in May and compare that with the real table. A surprise team doesn't break this: a team that starts low and keeps winning gains points all season, so by May its rating includes that season. Leicester in 2015-16 is the classic case. Passes if the rank correlation averages at least 0.8. The same comparison with August ratings is shown for information only, because that one is a forecast.</li>
+          <li><strong>Elo alone against the average shares.</strong> A logistic regression with only \(E\) as input, trained on 2002-03 to 2014-15 and scored on 2015-16 to 2018-19, must have a lower log loss than predicting the average shares every game.</li>
+          <li><strong>Ratings chart.</strong> Ratings since 2000 for the clubs with the most Premier League seasons. Sudden unexplained jumps or flat lines show bugs that numbers can hide.</li>
+          <li><strong>Promoted teams.</strong> Promoted teams that went straight back down should have started with lower ratings, on average, than the ones that stayed up.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 09 -->
+    <section id="decisions">
+      <h2><span class="num">09</span>Decisions to double-check</h2>
+      <div class="prose"><p>Each row is a choice we made, why, and what we gave up. If one looks wrong to you, it can still change before it's built.</p></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Decision</th><th>Why</th><th>Not chosen</th></tr></thead>
+          <tbody>
+            <tr><td>Betting odds are a benchmark, not an input</td><td>The model stays our own work, and predictions exist as soon as fixtures are known</td><td>Odds as an input: more accurate, but the model mostly copies the market</td></tr>
+            <tr><td>Bigger wins move Elo more</td><td>Uses more of each result</td><td>Classic Elo, where only win, draw or loss counts</td></tr>
+            <tr><td>Elo settings tuned on 2002-03 to 2018-19</td><td>Keeps the final test seasons unseen</td><td>Tuning on all seasons</td></tr>
+            <tr><td>Two warm-up seasons</td><td>Early ratings are wrong because everyone starts at 1500</td><td>Downloading 1993-2000 to warm up</td></tr>
+            <tr><td>Home advantage drifts</td><td>It changed a lot over time (section 4 chart)</td><td>One fixed value</td></tr>
+            <tr><td>Championship data for promoted teams</td><td>Promoted teams get a real starting rating</td><td>One default rating for all (\(a = 0\), still tested)</td></tr>
+            <tr><td>Fixed windows of 5 and 10 games</td><td>Easy to explain and to show on the site</td><td>Weighted averages that fade older games</td></tr>
+            <tr><td>Raw and opponent-adjusted form</td><td>Raw is readable; adjusted is fairer</td><td>Only one of them</td></tr>
+            <tr><td>One code path for past and future games</td><td>Live predictions are computed exactly like training rows</td><td>Separate prediction code</td></tr>
+            <tr><td>Logistic regression first</td><td>Real probabilities, readable weights, a strong baseline</td><td>Starting with a complex model</td></tr>
+            <tr><td>Log loss as the main score</td><td>Rewards honest probabilities</td><td>Accuracy only</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+<footer>Plan as of 14 November 2026. Results from football-data.co.uk; fixtures from openfootball. Not betting advice.</footer>
+
+<script>
+(function () {
+  var NS = 'http://www.w3.org/2000/svg';
+  function S(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function T(parent, x, y, str, attrs) {
+    var a = { x: x, y: y }; if (attrs) for (var k in attrs) a[k] = attrs[k];
+    var t = S('text', a, parent); t.textContent = str; return t;
+  }
+  function scale(d0, d1, r0, r1) { return function (v) { return r0 + (v - d0) / (d1 - d0) * (r1 - r0); }; }
+  function minus(v, d) { var s = Math.abs(v).toFixed(d); return (v < 0 && Number(s) !== 0 ? '−' : '') + s; }
+  function signed(v, d) { var s = Math.abs(v).toFixed(d); if (Number(s) === 0) return '±' + s; return (v > 0 ? '+' : '−') + s; }
+  function texNum(v, d) { return v.toFixed(d); }
+
+  /* ---------- math rendering for live formulas ---------- */
+  var live = new Map();
+  function drawTex(el, tex) {
+    var MJ = window.MathJax;
+    if (MJ && typeof MJ.tex2svg === 'function') {
+      try { el.replaceChildren(MJ.tex2svg(tex, { display: true })); return; } catch (e) { /* fall through */ }
+    }
+    el.textContent = tex;
+  }
+  function setTex(el, tex) { live.set(el, tex); drawTex(el, tex); }
+  window.__mjReady = function () { live.forEach(function (tex, el) { drawTex(el, tex); }); };
+
+  /* ---------- tooltip ---------- */
+  function makeTip(wrap) {
+    var tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; wrap.appendChild(tip);
+    return {
+      show: function (html, evt) {
+        tip.innerHTML = html; tip.hidden = false;
+        var r = wrap.getBoundingClientRect();
+        var px = evt.clientX - r.left, py = evt.clientY - r.top;
+        var tw = tip.offsetWidth, th = tip.offsetHeight;
+        var left = px + 14; if (left + tw > r.width) left = px - tw - 14;
+        var top = py - th - 10; if (top < 0) top = py + 16;
+        tip.style.left = Math.max(0, left) + 'px'; tip.style.top = top + 'px';
+      },
+      hide: function () { tip.hidden = true; }
+    };
+  }
+  function svgX(svg, evt) {
+    var pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
+    var m = svg.getScreenCTM(); if (!m) return null;
+    return pt.matrixTransform(m.inverse());
+  }
+
+  /* ---------- Elo explorer ---------- */
+  var RESULTS = {
+    h1: { S: 1, gd: 1, label: '1–0 home win' }, h2: { S: 1, gd: 2, label: '2–0 home win' },
+    h4: { S: 1, gd: 4, label: '4–0 home win' }, d: { S: 0.5, gd: 0, label: '1–1 draw' },
+    a1: { S: 0, gd: 1, label: '0–1 away win' }, a3: { S: 0, gd: 3, label: '0–3 away win' }
+  };
+  function G(gd) { return gd <= 1 ? 1 : gd === 2 ? 1.5 : (11 + gd) / 8; }
+  function expScore(gap) { return 1 / (1 + Math.pow(10, -gap / 400)); }
+
+  var eloSvg = document.getElementById('eloChart');
+  var ex = scale(-600, 600, 56, 624), ey = scale(0, 1, 228, 20);
+  (function buildEloChart() {
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+      S('line', { x1: 56, x2: 624, y1: ey(v), y2: ey(v), 'class': v === 0 ? 'baseline' : 'grid' }, eloSvg);
+      T(eloSvg, 48, ey(v) + 4, v.toFixed(2), { 'text-anchor': 'end' });
+    });
+    [-600, -300, 0, 300, 600].forEach(function (v) {
+      T(eloSvg, ex(v), 246, (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v), { 'text-anchor': 'middle' });
+    });
+    T(eloSvg, 340, 266, 'rating gap: home + H − away', { 'text-anchor': 'middle' });
+    T(eloSvg, 56, 12, 'expected home score E', {});
+    var d = ''; for (var g = -600; g <= 600; g += 10) d += (g === -600 ? 'M' : 'L') + ex(g).toFixed(1) + ',' + ey(expScore(g)).toFixed(1);
+    S('path', { d: d, 'class': 'l series-home' }, eloSvg);
+  })();
+  var eloMarker = S('g', {}, eloSvg);
+  var eloV = S('line', { 'class': 'guide' }, eloMarker), eloH = S('line', { 'class': 'guide' }, eloMarker);
+  var eloDot = S('circle', { r: 5.5, 'class': 'mk home' }, eloMarker);
+  var eloCross = S('line', { 'class': 'crosshair', y1: 20, y2: 228, visibility: 'hidden' }, eloSvg);
+  var eloHit = S('rect', { x: 56, y: 20, width: 568, height: 208, 'class': 'hit' }, eloSvg);
+  var eloTip = makeTip(document.getElementById('eloChartWrap'));
+  eloHit.addEventListener('pointermove', function (e) {
+    var p = svgX(eloSvg, e); if (!p) return;
+    var g = Math.round(Math.max(-600, Math.min(600, scale(56, 624, -600, 600)(p.x))) / 10) * 10;
+    eloCross.setAttribute('x1', ex(g)); eloCross.setAttribute('x2', ex(g)); eloCross.setAttribute('visibility', 'visible');
+    eloTip.show('<span class="k">gap</span> ' + signed(g, 0) + ' &nbsp;<span class="k">E</span> ' + expScore(g).toFixed(3), e);
+  });
+  eloHit.addEventListener('pointerleave', function () { eloCross.setAttribute('visibility', 'hidden'); eloTip.hide(); });
+
+  var inHR = document.getElementById('homeR'), inAR = document.getElementById('awayR'),
+      inH = document.getElementById('homeAdv'), inK = document.getElementById('kVal');
+  function updateElo() {
+    var hr = +inHR.value, ar = +inAR.value, H = +inH.value, K = +inK.value;
+    document.getElementById('homeROut').textContent = hr;
+    document.getElementById('awayROut').textContent = ar;
+    document.getElementById('homeAdvOut').textContent = minus(H, 0);
+    document.getElementById('kValOut').textContent = K;
+    var gap = hr + H - ar, E = expScore(gap);
+    var hPart = H >= 0 ? ' + ' + H : ' - ' + Math.abs(H);
+    setTex(document.getElementById('texE'),
+      'E_{\\text{home}} = \\frac{1}{1 + 10^{-(' + hr + hPart + ' - ' + ar + ')/400}} = \\frac{1}{1 + 10^{' + texNum(-gap / 400, 3) + '}} = ' + E.toFixed(3));
+    var cg = Math.max(-600, Math.min(600, gap));
+    eloV.setAttribute('x1', ex(cg)); eloV.setAttribute('x2', ex(cg)); eloV.setAttribute('y1', 228); eloV.setAttribute('y2', ey(E));
+    eloH.setAttribute('x1', 56); eloH.setAttribute('x2', ex(cg)); eloH.setAttribute('y1', ey(E)); eloH.setAttribute('y2', ey(E));
+    eloDot.setAttribute('cx', ex(cg)); eloDot.setAttribute('cy', ey(E));
+
+    var key = (document.querySelector('input[name="res"]:checked') || {}).value || 'h2';
+    var r = RESULTS[key], g = G(r.gd), delta = K * g * (r.S - E);
+    setTex(document.getElementById('texD'),
+      '\\Delta = K \\cdot G \\cdot (S - E_{\\text{home}}) = ' + K + ' \\times ' + g + ' \\times (' + r.S + ' - ' + E.toFixed(3) + ') = ' + (delta >= 0 ? '+' : '') + delta.toFixed(1));
+    var out = document.getElementById('eloReadout');
+    out.innerHTML =
+      '<span>Home team: <b>' + hr + ' → ' + (hr + delta).toFixed(1) + '</b> <span class="' + (delta >= 0 ? 'up' : 'down') + '">(' + signed(delta, 1) + ')</span></span>' +
+      '<span>Away team: <b>' + ar + ' → ' + (ar - delta).toFixed(1) + '</b> <span class="' + (-delta >= 0 ? 'up' : 'down') + '">(' + signed(-delta, 1) + ')</span></span>' +
+      '<span>Result: ' + r.label + ', multiplier G = ' + g + '</span>';
+  }
+  [inHR, inAR, inH, inK].forEach(function (i) { i.addEventListener('input', updateElo); });
+  document.querySelectorAll('input[name="res"]').forEach(function (i) { i.addEventListener('change', updateElo); });
+  updateElo();
+
+  /* ---------- home advantage chart (real data) ---------- */
+  var HA = [{"season":"2000-01","p":0.6171,"H":82.9,"n":380,"hw":48.4,"d":26.6,"aw":25.0},{"season":"2001-02","p":0.5671,"H":46.9,"n":380,"hw":43.4,"d":26.6,"aw":30.0},{"season":"2002-03","p":0.6105,"H":78.1,"n":380,"hw":49.2,"d":23.7,"aw":27.1},{"season":"2003-04","p":0.5816,"H":57.2,"n":380,"hw":43.9,"d":28.4,"aw":27.6},{"season":"2004-05","p":0.6,"H":70.4,"n":380,"hw":45.5,"d":28.9,"aw":25.5},{"season":"2005-06","p":0.6066,"H":75.2,"n":380,"hw":50.5,"d":20.3,"aw":29.2},{"season":"2006-07","p":0.6079,"H":76.2,"n":380,"hw":47.9,"d":25.8,"aw":26.3},{"season":"2007-08","p":0.5947,"H":66.6,"n":380,"hw":46.3,"d":26.3,"aw":27.4},{"season":"2008-09","p":0.5829,"H":58.1,"n":380,"hw":45.5,"d":25.5,"aw":28.9},{"season":"2009-10","p":0.6342,"H":95.6,"n":380,"hw":50.8,"d":25.3,"aw":23.9},{"season":"2010-11","p":0.6171,"H":82.9,"n":380,"hw":47.1,"d":29.2,"aw":23.7},{"season":"2011-12","p":0.5724,"H":50.6,"n":380,"hw":45.0,"d":24.5,"aw":30.5},{"season":"2012-13","p":0.5789,"H":55.3,"n":380,"hw":43.7,"d":28.4,"aw":27.9},{"season":"2013-14","p":0.5737,"H":51.6,"n":380,"hw":47.1,"d":20.5,"aw":32.4},{"season":"2014-15","p":0.575,"H":52.5,"n":380,"hw":45.3,"d":24.5,"aw":30.3},{"season":"2015-16","p":0.5539,"H":37.6,"n":380,"hw":41.3,"d":28.2,"aw":30.5},{"season":"2016-17","p":0.6026,"H":72.3,"n":380,"hw":49.2,"d":22.1,"aw":28.7},{"season":"2017-18","p":0.5855,"H":60.0,"n":380,"hw":45.5,"d":26.1,"aw":28.4},{"season":"2018-19","p":0.5697,"H":48.8,"n":380,"hw":47.6,"d":18.7,"aw":33.7},{"season":"2019-20","p":0.5737,"H":51.6,"n":380,"hw":45.3,"d":24.2,"aw":30.5},{"season":"2020-21","p":0.4882,"H":-8.2,"n":380,"hw":37.9,"d":21.8,"aw":40.3},{"season":"2021-22","p":0.5447,"H":31.2,"n":380,"hw":42.9,"d":23.2,"aw":33.9},{"season":"2022-23","p":0.5987,"H":69.5,"n":380,"hw":48.4,"d":22.9,"aw":28.7},{"season":"2023-24","p":0.5684,"H":47.8,"n":380,"hw":46.1,"d":21.6,"aw":32.4},{"season":"2024-25","p":0.5303,"H":21.1,"n":380,"hw":40.8,"d":24.5,"aw":34.7},{"season":"2025-26","p":0.5632,"H":44.1,"n":380,"hw":42.6,"d":27.4,"aw":30.0},{"season":"2026-27","p":0.555,"H":38.4,"n":100,"hw":42.0,"d":27.0,"aw":31.0}];
+  (function buildHA() {
+    var svg = document.getElementById('haChart');
+    var L = 48, R = 708, top = 18, bot = 252;
+    var y = scale(-25, 100, bot, top), band = (R - L) / HA.length, bw = Math.min(16, band - 4);
+    [-25, 0, 25, 50, 75, 100].forEach(function (v) {
+      S('line', { x1: L, x2: R, y1: y(v), y2: y(v), 'class': v === 0 ? 'baseline' : 'grid' }, svg);
+      T(svg, L - 8, y(v) + 4, minus(v, 0), { 'text-anchor': 'end' });
+    });
+    T(svg, L, 10, 'home advantage, rating points', {});
+    var bars = [];
+    function barPath(x, w, y0, y1, r) {
+      var h = Math.abs(y1 - y0); r = Math.min(r, h, w / 2);
+      if (h < 0.5) return 'M' + x + ',' + y0 + 'h' + w;
+      if (y1 < y0) return 'M' + x + ',' + y0 + 'V' + (y1 + r) + 'Q' + x + ',' + y1 + ' ' + (x + r) + ',' + y1 + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y1 + ' ' + (x + w) + ',' + (y1 + r) + 'V' + y0 + 'Z';
+      return 'M' + x + ',' + y0 + 'V' + (y1 - r) + 'Q' + x + ',' + y1 + ' ' + (x + r) + ',' + y1 + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y1 + ' ' + (x + w) + ',' + (y1 - r) + 'V' + y0 + 'Z';
+    }
+    HA.forEach(function (d, i) {
+      var cx = L + band * (i + 0.5), x = cx - bw / 2;
+      var b = S('path', { d: barPath(x, bw, y(0), y(d.H), 4), 'class': 'bar' + (d.n < 380 ? ' partial' : '') }, svg);
+      bars.push(b);
+      if (i % 5 === 0) T(svg, cx, bot + 20, d.season, { 'text-anchor': 'middle' });
+    });
+    var iCovid = HA.findIndex(function (d) { return d.season === '2020-21'; });
+    var cxc = L + band * (iCovid + 0.5);
+    T(svg, cxc, y(-8.2) + 18, '2020-21: no fans, −8', { 'text-anchor': 'middle', 'class': 'label-strong' });
+    var last = HA.length - 1, cxl = L + band * (last + 0.5);
+    T(svg, cxl, y(HA[last].H) - 8, 'so far', { 'text-anchor': 'middle', 'class': 'label' });
+    var i9 = HA.findIndex(function (d) { return d.season === '2009-10'; });
+    T(svg, L + band * (i9 + 0.5), y(95.6) - 8, '96', { 'text-anchor': 'middle', 'class': 'label' });
+    var tip = makeTip(document.getElementById('haWrap'));
+    HA.forEach(function (d, i) {
+      var hit = S('rect', { x: L + band * i, y: top, width: band, height: bot - top, 'class': 'hit' }, svg);
+      hit.addEventListener('pointerenter', function () { bars.forEach(function (b, j) { b.classList.toggle('dim', j !== i); }); });
+      hit.addEventListener('pointermove', function (e) {
+        tip.show('<b>' + d.season + '</b>' + (d.n < 380 ? ' (so far)' : '') + '<br><span class="k">home advantage</span> ' + minus(d.H, 1) + ' pts<br><span class="k">home / draw / away</span> ' + d.hw.toFixed(1) + '% / ' + d.d.toFixed(1) + '% / ' + d.aw.toFixed(1) + '%<br><span class="k">games</span> ' + d.n, e);
+      });
+      hit.addEventListener('pointerleave', function () { bars.forEach(function (b) { b.classList.remove('dim'); }); tip.hide(); });
+    });
+    var tb = document.querySelector('#haTable tbody');
+    HA.forEach(function (d) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + d.season + '</td><td class="r">' + d.n + '</td><td class="r">' + d.hw.toFixed(1) + '%</td><td class="r">' + d.d.toFixed(1) + '%</td><td class="r">' + d.aw.toFixed(1) + '%</td><td class="r">' + d.p.toFixed(3) + '</td><td class="r">' + minus(d.H, 1) + '</td>';
+      tb.appendChild(tr);
+    });
+  })();
+
+  /* ---------- rolling-window chips ---------- */
+  (function buildChips() {
+    var g = document.getElementById('chips');
+    var res = ['L', 'D', 'L', 'W', 'D', 'L', 'W', 'W', 'W', 'D', 'L', 'W'];
+    res.forEach(function (r, i) {
+      var x = 20 + i * 54;
+      S('rect', { x: x, y: 70, width: 46, height: 40, rx: 6, 'class': 'box' }, g);
+      T(g, x + 23, 95, r, { 'text-anchor': 'middle', 'class': 'title' });
+    });
+  })();
+
+  /* ---------- linear vs logistic curve ---------- */
+  (function () {
+    var x = scale(-600, 600, 70, 570), y = function (p) { return 250 - (p + 0.3) / 1.6 * 220; };
+    var d = ''; for (var g = -600; g <= 600; g += 10) d += (g === -600 ? 'M' : 'L') + x(g).toFixed(1) + ',' + y(expScore(g)).toFixed(1);
+    document.getElementById('logCurve').setAttribute('d', d);
+  })();
+
+  /* ---------- model explorer ---------- */
+  var W = { bH: 0.287, wH: 0.0040, bA: 0.154, wA: -0.0021 };
+  function probs(g) {
+    var zH = W.bH + W.wH * g, zA = W.bA + W.wA * g, eH = Math.exp(zH), eA = Math.exp(zA), s = eH + 1 + eA;
+    return { zH: zH, zA: zA, H: eH / s, D: 1 / s, A: eA / s };
+  }
+  var pSvg = document.getElementById('probChart');
+  var PL = 52, PR = 560, PT = 20, PB = 240;
+  var px = scale(-400, 600, PL, PR), py = scale(0, 1, PB, PT);
+  (function buildProb() {
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+      S('line', { x1: PL, x2: PR, y1: py(v), y2: py(v), 'class': v === 0 ? 'baseline' : 'grid' }, pSvg);
+      T(pSvg, PL - 8, py(v) + 4, Math.round(v * 100) + '%', { 'text-anchor': 'end' });
+    });
+    [-400, -200, 0, 200, 400, 600].forEach(function (v) {
+      T(pSvg, px(v), PB + 18, (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v), { 'text-anchor': 'middle' });
+    });
+    T(pSvg, (PL + PR) / 2, PB + 40, 'rating gap x (home + H − away)', { 'text-anchor': 'middle' });
+    var keys = [['H', 'series-home', 'Home win'], ['D', 'series-draw', 'Draw'], ['A', 'series-away', 'Away win']];
+    var ends = [];
+    keys.forEach(function (k) {
+      var d = ''; for (var g = -400; g <= 600; g += 10) d += (g === -400 ? 'M' : 'L') + px(g).toFixed(1) + ',' + py(probs(g)[k[0]]).toFixed(1);
+      S('path', { d: d, 'class': 'l ' + k[1] }, pSvg);
+      ends.push({ y: py(probs(600)[k[0]]), text: k[2] });
+    });
+    ends.sort(function (a, b) { return a.y - b.y; });
+    for (var i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 15) ends[i].y = ends[i - 1].y + 15;
+    ends.forEach(function (e) { T(pSvg, PR + 8, e.y + 4, e.text, { 'class': 'label' }); });
+  })();
+  var pMarker = S('g', {}, pSvg);
+  var pV = S('line', { 'class': 'guide', y1: PT, y2: PB }, pMarker);
+  var pDots = { H: S('circle', { r: 5, 'class': 'mk home' }, pMarker), D: S('circle', { r: 5, 'class': 'mk draw' }, pMarker), A: S('circle', { r: 5, 'class': 'mk away' }, pMarker) };
+  var pCross = S('line', { 'class': 'crosshair', y1: PT, y2: PB, visibility: 'hidden' }, pSvg);
+  var pHit = S('rect', { x: PL, y: PT, width: PR - PL, height: PB - PT, 'class': 'hit' }, pSvg);
+  var pTip = makeTip(document.getElementById('probWrap'));
+  pHit.addEventListener('pointermove', function (e) {
+    var p = svgX(pSvg, e); if (!p) return;
+    var g = Math.round(Math.max(-400, Math.min(600, scale(PL, PR, -400, 600)(p.x))) / 5) * 5, q = probs(g);
+    pCross.setAttribute('x1', px(g)); pCross.setAttribute('x2', px(g)); pCross.setAttribute('visibility', 'visible');
+    pTip.show('<span class="k">gap</span> ' + signed(g, 0) + '<br><i class="sw home"></i>Home ' + (q.H * 100).toFixed(1) + '%<br><i class="sw draw"></i>Draw ' + (q.D * 100).toFixed(1) + '%<br><i class="sw away"></i>Away ' + (q.A * 100).toFixed(1) + '%', e);
+  });
+  pHit.addEventListener('pointerleave', function () { pCross.setAttribute('visibility', 'hidden'); pTip.hide(); });
+
+  var inGap = document.getElementById('gap2');
+  function updateModel() {
+    var g = +inGap.value, q = probs(g);
+    document.getElementById('gap2Out').textContent = signed(g, 0).replace('±0', '0');
+    var gT = g < 0 ? '(' + g + ')' : String(g);
+    setTex(document.getElementById('texZ'),
+      'z_{\\text{home}} = 0.287 + 0.0040 \\times ' + gT + ' = ' + q.zH.toFixed(3) + ' \\qquad z_{\\text{draw}} = 0 \\qquad z_{\\text{away}} = 0.154 - 0.0021 \\times ' + gT + ' = ' + q.zA.toFixed(3));
+    setTex(document.getElementById('texP'),
+      'P(\\text{home}) = \\frac{e^{' + q.zH.toFixed(3) + '}}{e^{' + q.zH.toFixed(3) + '} + e^{0} + e^{' + q.zA.toFixed(3) + '}} = ' + (q.H * 100).toFixed(1) + '\\%');
+    var st = document.getElementById('stack').children;
+    st[0].style.flexBasis = (q.H * 100) + '%'; st[1].style.flexBasis = (q.D * 100) + '%'; st[2].style.flexBasis = (q.A * 100) + '%';
+    st[0].style.flexGrow = st[1].style.flexGrow = st[2].style.flexGrow = '0';
+    var top2 = [q.H, q.D, q.A].sort(function (a, b) { return b - a; });
+    var close = top2[0] - top2[1] < 0.05;
+    document.getElementById('stackLabels').innerHTML =
+      '<span><i class="sw home"></i>Home win ' + Math.round(q.H * 100) + '%</span><span><i class="sw draw"></i>Draw ' + Math.round(q.D * 100) + '%</span><span><i class="sw away"></i>Away win ' + Math.round(q.A * 100) + '%</span>' +
+      '<span style="color: var(--ink-2)">' + (close ? 'Site label: Close call' : 'Site label: ' + (q.H >= q.A && q.H >= q.D ? 'home team favoured' : q.A >= q.D ? 'away team favoured' : 'draw favoured')) + '</span>';
+    pV.setAttribute('x1', px(g)); pV.setAttribute('x2', px(g));
+    ['H', 'D', 'A'].forEach(function (k) { pDots[k].setAttribute('cx', px(g)); pDots[k].setAttribute('cy', py(q[k])); });
+  }
+  inGap.addEventListener('input', updateModel);
+  updateModel();
+
+  /* ---------- log loss calculator ---------- */
+  var llSvg = document.getElementById('llChart');
+  var LL = 48, LR = 624, LT = 18, LB = 196;
+  var lx = scale(0, 1, LL, LR), ly = scale(0, 5, LB, LT);
+  (function buildLL() {
+    [0, 1, 2, 3, 4, 5].forEach(function (v) {
+      S('line', { x1: LL, x2: LR, y1: ly(v), y2: ly(v), 'class': v === 0 ? 'baseline' : 'grid' }, llSvg);
+      T(llSvg, LL - 8, ly(v) + 4, String(v), { 'text-anchor': 'end' });
+    });
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) { T(llSvg, lx(v), LB + 18, Math.round(v * 100) + '%', { 'text-anchor': 'middle' }); });
+    T(llSvg, (LL + LR) / 2, LB + 38, 'probability given to what happened', { 'text-anchor': 'middle' });
+    T(llSvg, LL, 10, 'cost: −ln p', {});
+    var d = ''; for (var p = 0.007; p <= 1.0001; p += 0.005) d += (d ? 'L' : 'M') + lx(p).toFixed(1) + ',' + ly(-Math.log(Math.min(p, 1))).toFixed(1);
+    S('path', { d: d, 'class': 'l ink-line' }, llSvg);
+  })();
+  var llDot = S('circle', { r: 5.5, 'class': 'mk ink' }, llSvg);
+  var llV = S('line', { 'class': 'guide' }, llSvg);
+  var inP = document.getElementById('pTrue');
+  function updateLL() {
+    var p = +inP.value / 100, c = -Math.log(p);
+    document.getElementById('pTrueOut').textContent = Math.round(p * 100) + '%';
+    setTex(document.getElementById('texL'), '-\\ln(' + p.toFixed(2) + ') = ' + c.toFixed(2));
+    llDot.setAttribute('cx', lx(p)); llDot.setAttribute('cy', ly(c));
+    llV.setAttribute('x1', lx(p)); llV.setAttribute('x2', lx(p)); llV.setAttribute('y1', LB); llV.setAttribute('y2', ly(c));
+  }
+  inP.addEventListener('input', updateLL);
+  updateLL();
+
+  /* ---------- walk-forward rows ---------- */
+  (function buildWF() {
+    var g = document.getElementById('wfRows');
+    var x = scale(2002, 2026, 150, 775);
+    for (var r = 0; r < 7; r++) {
+      var t = 2019 + r, yy = 40 + r * 25;
+      T(g, 140, yy + 13, 'Test ' + t + '-' + String((t + 1) % 100).padStart(2, '0'), { 'text-anchor': 'end' });
+      S('rect', { x: x(2002), y: yy, width: x(t) - x(2002) - 2, height: 17, rx: 3, 'class': 'fill-soft' }, g);
+      S('rect', { x: x(t), y: yy, width: x(t + 1) - x(t) - 2, height: 17, rx: 3, 'class': 'fill-ink' }, g);
+    }
+    [2002, 2010, 2019, 2025].forEach(function (yv) { T(g, x(yv) + (x(yv + 1) - x(yv)) / 2, 230, String(yv), { 'text-anchor': 'middle', 'class': 'small' }); });
+  })();
+})();
+</script>
