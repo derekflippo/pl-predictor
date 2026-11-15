@@ -4,13 +4,12 @@ Predicts Premier League results as three probabilities (home win, draw,
 away win) and will show them on a static website. A portfolio and
 learning project: the user is learning machine learning as we build.
 
-## Where things stand (2026-11-15)
+## Status and key files
 
-- **Done:** milestone 0 (data pipeline, PR #1) and milestone 1
-  (Championship data, openfootball fixtures, team-name map, first tests,
-  PR #2). Both are merged into `main`.
-- **Next:** milestone 2 (Elo ratings and features) on branch
-  `feature/features-elo`. Its spec is committed there. No code yet.
+- **Current status and open threads:** in the session log's `STATUS.md`,
+  which is printed at the start of each chat (see "Session log" below).
+  On a machine without the log, use `git log`, the open pull requests and
+  the v1 spec's milestone table.
 - **Specs:** read the right one before starting a milestone.
   - `.plans/pl-predictor-v1-spec.md`: the whole project, milestones 0–8
   - `.plans/milestone-2-features-spec.md`: milestone 2 in detail
@@ -48,6 +47,32 @@ pytest                            # 18 tests; data-dependent ones skip without d
   explanations (`/anthropic-skills:ste`) and likes an interview before a
   milestone (`/anthropic-skills:interview`).
 - Label numbers as real (computed from our data) or as examples.
+
+## Session log
+
+The log lives outside the repo, in `~/.claude/session-logs/pl-predictor/`,
+because the repo is public. A session-start hook in
+`.claude/settings.local.json` (not committed) prints `STATUS.md` and the
+last two daily logs into each new chat.
+
+- **When to write:** after every finished piece of work, every decision,
+  and every switch of task. Don't wait for the end of the session.
+- **Where:** append an entry to today's file, `YYYY-MM-DD.md`, creating it
+  if it's missing.
+- **Entry format:** a `## HH:MM title` heading, then four `###` headings:
+  - **What was done:** commands, files, features
+  - **Decisions made:** and why
+  - **Open threads:** unfinished work to pick up next time
+  - **Errors:** what went wrong and how it was handled
+
+  Write "None." under a heading with nothing to say.
+- **Append only:** use `cat >> file <<'EOF'`. Never edit or delete
+  earlier entries or older files. Other chats may be writing too.
+- **Keep `STATUS.md` current:** rewrite it so it always shows where the
+  project stands and every open thread, including threads from older
+  days. Remove a thread only when it's done, and say so in that day's
+  log.
+- **Facts only,** in plain words. No drama, no praise.
 
 ## Data facts that matter
 
