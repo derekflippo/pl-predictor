@@ -14,7 +14,8 @@ the site's track record is a real one.
 ```
 backend/     Python: data download, features, model training, predictions
 frontend/    React + Vite + Tailwind static site (coming in milestone 6)
-.plans/      Design spec
+.plans/      Design specs
+docs/        Methodology explainer (source of a private page; reused in milestone 6)
 ```
 
 The site is static: a daily GitHub Action retrains the model and writes the

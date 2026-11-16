@@ -1,0 +1,60 @@
+{
+  "K": 12.5,
+  "s": 0.1,
+  "a": 0.25,
+  "n_home": 380,
+  "tuning": {
+    "seasons": "2002-03 to 2018-19",
+    "games": 6460,
+    "score": "mean squared error between E and the actual home score",
+    "mse": 0.149554,
+    "mse_always_average": 0.179022,
+    "combinations_within_1_se": 2,
+    "grid": {
+      "K": [
+        5,
+        7.5,
+        10,
+        12.5,
+        15,
+        20,
+        25,
+        30,
+        40
+      ],
+      "s": [
+        0,
+        0.1,
+        0.2,
+        0.33,
+        0.5
+      ],
+      "a": [
+        0,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "n_home": "fixed"
+    },
+    "championship_carry_over": {
+      "promoted_team_games": 1836,
+      "best_a0": {
+        "K": 10,
+        "s": 0.1,
+        "mse_promoted": 0.147823
+      },
+      "best_a_above_0": {
+        "K": 12.5,
+        "s": 0.1,
+        "a": 0.25,
+        "mse_promoted": 0.147489
+      },
+      "difference": 0.000334,
+      "standard_error": 0.000371,
+      "clear_gain": false
+    },
+    "tuned_on": "2026-11-15"
+  }
+}
