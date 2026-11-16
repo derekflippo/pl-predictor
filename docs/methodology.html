@@ -508,21 +508,21 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
       </figure>
 
       <div class="prose">
-        <h3>Step 7: choosing the four settings</h3>
+        <h3>Step 7: choosing the settings</h3>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Setting</th><th>Meaning</th><th>Values tried</th></tr></thead>
           <tbody>
-            <tr><td>\(K\)</td><td>How fast ratings move</td><td class="num-tab">10, 15, 20, 25, 30, 40</td></tr>
+            <tr><td>\(K\)</td><td>How fast ratings move</td><td class="num-tab">5, 7.5, 10, 12.5, 15, 20, 25, 30, 40</td></tr>
             <tr><td>\(s\)</td><td>Summer shrink toward the average</td><td class="num-tab">0, 0.1, 0.2, 0.33, 0.5</td></tr>
-            <tr><td>\(N_{\text{home}}\)</td><td>Games used to measure home advantage</td><td class="num-tab">190, 380, 760</td></tr>
+            <tr><td>\(N_{\text{home}}\)</td><td>Games used to measure home advantage</td><td class="num-tab">Fixed at 380 (one season)</td></tr>
             <tr><td>\(a\)</td><td>How much Championship strength carries over</td><td class="num-tab">0, 0.25, 0.5, 0.75, 1</td></tr>
           </tbody>
         </table>
       </div>
       <div class="prose">
-        <p>The code tries all 450 combinations (a <em>grid search</em>) and keeps the one whose expected scores were closest to the real results, measured by the mean squared error:</p>
+        <p>\(N_{\text{home}}\) is fixed rather than tuned: home advantage barely changed in the tuning seasons, so tuning would mostly fit luck. The code tries all 225 combinations of the other three (a <em>grid search</em>) and keeps the one whose expected scores were closest to the real results, measured by the mean squared error:</p>
       </div>
       <div class="formula">\[ \text{MSE} = \frac{1}{N} \sum_{i=1}^{N} \left( S_i - E_i \right)^2 \]</div>
       <div class="prose">

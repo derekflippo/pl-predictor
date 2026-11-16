@@ -18,7 +18,7 @@ computed the same way.
 
 | Layer | What it is | Trained? |
 |---|---|---|
-| Elo (`elo.py`) | A fixed formula that updates each team's rating after every game, in date order | No. It has 4 settings, tuned once (see below) |
+| Elo (`elo.py`) | A fixed formula that updates each team's rating after every game, in date order | No. It has 4 settings: 3 tuned once, `N_home` fixed (see below) |
 | Features (`features.py`) | Numbers describing both teams before a match; Elo is one of them | No |
 | Model (milestone 3) | Logistic regression: features in, home/draw/away probabilities out | Yes, it learns one weight per feature |
 
@@ -97,19 +97,39 @@ league's season file. No hand-made list is needed.
 
 | Setting | Meaning | Values tried |
 |---|---|---|
-| `K` | How fast ratings move | 10, 15, 20, 25, 30, 40 |
+| `K` | How fast ratings move | 5, 7.5, 10, 12.5, 15, 20, 25, 30, 40 |
 | `s` | Summer shrink toward average | 0, 0.1, 0.2, 0.33, 0.5 |
-| `N_home` | Games used for home advantage | 190, 380, 760 |
+| `N_home` | Games used for home advantage | Fixed at 380 (one season), not tuned |
 | `a` | How much Championship strength carries over on promotion | 0, 0.25, 0.5, 0.75, 1 |
+
+Changes agreed on 2026-11-15, after a rough tuning run:
+
+- **K goes lower.** The rough best was K = 10, at the bottom of the
+  first grid, so 5, 7.5 and 12.5 were added.
+- **`N_home` is fixed at 380.** Home advantage changed little from
+  2002-03 to 2018-19, so tuning would mostly fit luck and favour the
+  slowest setting. The one big shift (empty stadiums, from June 2020) is
+  in the unseen test seasons.
 
 - **Score to minimize:** the mean squared error between Elo's expected
   score `E` and the actual score, over Premier League games from 2002-03
   to 2018-19. Games from 2019-20 onward are never used.
-- **Grid:** 450 combinations. A pass over about 24,500 games takes well
-  under a second, so the full grid runs in a few minutes.
+- **Grid:** 225 combinations (9 × 5 × 5). A pass over about 24,500
+  games takes well under a second, so the full grid runs in a few
+  minutes.
+- **Choosing the winner:** the lowest MSE wins. Many combinations score
+  within noise of each other, so the report also shows, for the runners-up:
+  - the paired standard error of their difference from the best,
+    computed per game
+  - how many of the 17 seasons the best one scored lower in
+- **Does Championship data help (`a > 0`)?** Compare the best `a > 0`
+  combination with the best `a = 0` combination on Premier League games
+  involving a promoted team, with a paired standard error. `a` only
+  affects those games, so the full-grid score dilutes its effect.
 - **`a = 0` is the flat default:** every promoted team gets the same
-  rating. If tuning picks `a = 0`, the Championship data doesn't help
-  ratings, and the milestone's write-up says so.
+  rating. If the comparison doesn't show a clear gain for `a > 0`, the
+  Championship data doesn't help ratings, and the milestone's write-up
+  says so.
 - **Saving:** `python backend/elo.py --tune` writes the chosen values and
   their score to `backend/elo_settings.json`, which is committed. The
   daily Action uses that file and never re-tunes.
@@ -247,7 +267,7 @@ milestone 3's job.
 ```
 backend/
   elo.py                 Elo formula, season boundaries, --tune
-  elo_settings.json      tuned K, s, N_home, a (committed)
+  elo_settings.json      tuned K, s, a and fixed N_home (committed)
   features.py            build_features, features_for; writes data/features.csv
   check_ratings.py       checks 1, 2 and 4; prints a report
   tests/test_elo.py
