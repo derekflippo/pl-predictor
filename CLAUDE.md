@@ -27,7 +27,10 @@ pip install -r backend/requirements-dev.txt
 python backend/download_data.py   # results (E0 + E1 since 2000-01) and this season's fixtures
 python backend/load_data.py       # builds backend/data/matches.csv
 python backend/fixtures.py        # fixtures matched to results, next matchweek
-pytest                            # 18 tests; data-dependent ones skip without downloads
+python backend/elo.py --tune      # only when re-tuning; writes backend/elo_settings.json
+python backend/features.py        # builds backend/data/features.csv
+python backend/check_ratings.py   # rating checks 1, 2 and 4
+pytest                            # data-dependent tests skip without downloads
 ```
 
 - `backend/data/` is gitignored. Rebuild it with the commands above.
