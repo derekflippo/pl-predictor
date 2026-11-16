@@ -89,6 +89,14 @@ At the start of each season, in this order:
      after years away is treated as new too, not given its stale rating.
 2. **Summer shrink:** every rating moves part of the way to its league's
    average: `R = mean + (1 - s) * (R - mean)`.
+3. **Re-center:** every team in a league is shifted by the same amount so
+   the league average is 1500 again. Added on 2026-11-15: with `a > 0`,
+   promoted teams arrive above the relegated teams they replace, so the
+   Premier League average crept up every year (1504 to 1601 by 2026-27
+   at `a = 0.25`, real numbers) and the Championship average fell. The
+   shift changes no difference between teams in a league, so predictions
+   and tuning are unaffected; it keeps the raw `elo` features comparable
+   across seasons.
 
 Who moved between leagues is found from which teams appear in each
 league's season file. No hand-made list is needed.
@@ -253,14 +261,17 @@ milestone 3's job.
   Premier League, with season boundaries marked.
 - Sudden unexplained jumps or flat lines show bugs that numbers can hide.
 
-### 4. Promoted teams
+### 4. Promoted teams (for information only)
 
 - **Compare:** the average starting rating of promoted teams that went
-  straight back down with the ones that stayed up.
-- **Pass:** the teams that went down started lower on average. Report both
-  averages and the counts.
-- **Failure means:** the promotion conversion (`a`) isn't capturing
-  strength.
+  straight back down with the ones that stayed up. Report both averages,
+  the counts and the standard error of the gap.
+- **No pass or fail.** Changed on 2026-11-15. In our data, Championship
+  strength barely predicts survival: the teams that went down had about
+  the same Championship ratings as the ones that stayed up (+106 vs +102
+  above the Championship average, real numbers), and tuning found no
+  clear gain from `a > 0`. A pass mark would test luck. The unit tests
+  check the conversion arithmetic instead.
 
 ## Files
 
@@ -269,7 +280,7 @@ backend/
   elo.py                 Elo formula, season boundaries, --tune
   elo_settings.json      tuned K, s, a and fixed N_home (committed)
   features.py            build_features, features_for; writes data/features.csv
-  check_ratings.py       checks 1, 2 and 4; prints a report
+  check_ratings.py       checks 1 and 2, check 4 for information; prints a report
   tests/test_elo.py
   tests/test_features.py
 notebooks/
@@ -312,8 +323,8 @@ gains `jupyter` and `matplotlib` (check 3).
 
 - All tests pass.
 - `elo_settings.json` is committed with its tuning score.
-- `check_ratings.py` passes checks 1, 2 and 4, and the notebook shows the
-  chart.
+- `check_ratings.py` passes checks 1 and 2, reports check 4, and the
+  notebook shows the chart.
 - The pull request reports:
   - the tuned settings, including whether `a > 0`, which shows whether the
     Championship data helped
