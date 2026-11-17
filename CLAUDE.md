@@ -1,8 +1,10 @@
 # pl-predictor
 
 Predicts Premier League results as three probabilities (home win, draw,
-away win) and will show them on a static website. A portfolio and
-learning project: the user is learning machine learning as we build.
+away win). Anyone can clone the repo, retrain the model and predict
+upcoming games locally with `predict.py`. There is no website (dropped on
+2026-11-16). A portfolio and learning project: the user is learning
+machine learning as we build.
 
 ## Status and key files
 
@@ -11,7 +13,9 @@ learning project: the user is learning machine learning as we build.
   On a machine without the log, use `git log`, the open pull requests and
   the v1 spec's milestone table.
 - **Specs:** read the right one before starting a milestone.
-  - `.plans/pl-predictor-v1-spec.md`: the whole project, milestones 0–8
+  - `.plans/pl-predictor-v1-spec.md`: the whole project, milestones 0–5
+    (the scope was cut on 2026-11-16: no website, no daily Action, no
+    later models)
   - `.plans/milestone-2-features-spec.md`: milestone 2 in detail
   - `.plans/milestone-3-model-spec.md`: milestone 3, the model and its test
   - The decisions in them were made with the user in interviews. Don't
@@ -34,6 +38,7 @@ python backend/check_ratings.py   # rating checks 1, 2 and 4
 python backend/train.py --tune    # only when re-tuning; writes backend/model_settings.json
 python backend/train.py           # trains on every finished match, prints the weights
 python backend/evaluate.py        # the test, 2019-20 to 2025-26; --validation for 2015-16 to 2018-19
+python backend/predict.py         # retrains, predicts the next matchweek; --matchweek N; --home X --away Y
 pytest                            # data-dependent tests skip without downloads
 ```
 

@@ -3,7 +3,6 @@
   https://claude.ai/artifact/X6HrP3fNfrDahR8yVA2Zh7
   The Artifact tool adds the doctype, <head> and <body> when publishing, so open the
   link to view it. To update it, edit this file and republish it to the same URL.
-  Milestone 6 will reuse its text and diagrams for the site's "How it works" page.
 -->
 <title>PL Predictor Methodology</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -245,8 +244,8 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
       <h1>How the predictor works</h1>
       <p class="lede">The predictor turns 26 years of match results into three numbers for every upcoming Premier League game: the chance of a home win, a draw and an away win. This page goes through each step in the order the code runs, so you can check that each choice makes sense.</p>
       <div class="status">
-        <div><b>Built</b>Data pipeline (milestones 0 and 1), Elo ratings and the feature table (milestone 2), and the model, tuned and tested (milestone 3).</div>
-        <div><b>Planned</b>Daily predictions locked before kickoff (milestones 4 and 5), then the website (milestone 6).</div>
+        <div><b>Built</b>Data pipeline (milestones 0 and 1), Elo ratings and the feature table (milestone 2), the model, tuned and tested (milestone 3), and <code>predict.py</code>, which retrains and predicts on your own computer (milestone 4).</div>
+        <div><b>Planned</b>Publishing the code (milestone 5). There is no website: it was dropped on 16 Nov.</div>
         <div><b>How to read the numbers</b><span class="tag real">Real data</span> comes from our downloaded matches. <span class="tag ex">Example</span> numbers only show how a step works.</div>
       </div>
       <nav class="toc-inline" aria-label="Sections">
@@ -763,16 +762,16 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
 
         <h3>Why logistic regression</h3>
         <ul>
-          <li><strong>Real probabilities.</strong> Its output is exactly what the site shows.</li>
-          <li><strong>Readable weights.</strong> You can say which features moved a prediction. That's what the "key factors" on match cards will use later.</li>
+          <li><strong>Real probabilities.</strong> Its output is exactly what <code>predict.py</code> prints.</li>
+          <li><strong>Readable weights.</strong> You can say which features moved a prediction.</li>
           <li><strong>Enough data.</strong> It works well with about 9,000 training rows. More complex models usually need more data to beat it.</li>
           <li><strong>An honest baseline.</strong> It's a standard first model in football prediction, so it sets a fair bar for fancier models.</li>
-          <li><strong>Fast.</strong> It trains in seconds, so the daily update can retrain every day.</li>
+          <li><strong>Fast.</strong> It trains in seconds, so <code>predict.py</code> retrains on every run, with the latest results.</li>
         </ul>
-        <p><strong>Its limit:</strong> each feature's effect on the score \(z\) is a straight line. It can't discover combinations by itself, such as "strong team <em>and</em> tired", unless we build that combination as a feature. That's why a later milestone tries gradient boosting, which can find combinations, using the same evaluation.</p>
+        <p><strong>Its limit:</strong> each feature's effect on the score \(z\) is a straight line. It can't discover combinations by itself, such as "strong team <em>and</em> tired", unless we build that combination as a feature. Gradient boosting can find combinations, but the project stops at logistic regression, which is easier to explain and already beats Elo alone.</p>
 
         <h3>The draw problem</h3>
-        <p>About a quarter of games end level, but a draw is rarely the single most likely outcome. In the 2,660 games of the test seasons, the bookmakers never once made a draw the favourite. Their highest draw probability was 32.3%. <span class="tag real">Real data</span> Our model behaves the same way: on those seasons it never made a draw the favourite, and its highest draw probability was 33.5%. So the site shows all three probabilities, and says "Close call" when the top two are within 5 points, instead of always naming a pick.</p>
+        <p>About a quarter of games end level, but a draw is rarely the single most likely outcome. In the 2,660 games of the test seasons, the bookmakers never once made a draw the favourite. Their highest draw probability was 32.3%. <span class="tag real">Real data</span> Our model behaves the same way: on those seasons it never made a draw the favourite, and its highest draw probability was 33.5%. So <code>predict.py</code> shows all three probabilities, and says "Close call" when the top two are within 5 points, instead of always naming a pick.</p>
       </div>
     </section>
 
@@ -865,7 +864,7 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
             <tr><td>Championship data for promoted teams</td><td>Promoted teams get a real starting rating. Tuned to \(a = 0.25\), but the gain over \(a = 0\) is within noise.</td><td>One default rating for all (\(a = 0\))</td></tr>
             <tr><td>Home-advantage window fixed at 380 games</td><td>The tuning seasons can't show which window is best (step 4)</td><td>Tuning it over 190, 380 and 760</td></tr>
             <tr><td>Each league re-centered to 1500 every summer</td><td>Stops ratings drifting, without changing any prediction</td><td>Letting averages drift (1601 and 1399 by 2026-27)</td></tr>
-            <tr><td>Fixed windows of 5 and 10 games</td><td>Easy to explain and to show on the site</td><td>Weighted averages that fade older games</td></tr>
+            <tr><td>Fixed windows of 5 and 10 games</td><td>Easy to explain</td><td>Weighted averages that fade older games</td></tr>
             <tr><td>Raw and opponent-adjusted form</td><td>Raw is readable; adjusted is fairer</td><td>Only one of them</td></tr>
             <tr><td>Raw form counts only the current league (changed 16 Nov)</td><td>Championship points made promoted teams look like top sides: <code>ppg_10</code> of 1.96 going into their first Premier League game, then 1.01 points per game earned that season. <span class="tag real">Real data</span> On the validation seasons the change scores within noise of the old rule, so it rests on the logic.</td><td>Counting Championship games in raw form</td></tr>
             <tr><td>One code path for past and future games</td><td>Live predictions are computed exactly like training rows</td><td>Separate prediction code</td></tr>
