@@ -10,8 +10,8 @@ Branch: `feature/features-elo`
 
 Turn the match history into one row of numbers per match that describes
 both teams **before** kickoff. Milestone 3 trains the model on these rows.
-The same code also produces rows for games not played yet (upcoming
-fixtures and the team picker), so training and live predictions are
+The same code also produces rows for games not played yet (the upcoming
+games `predict.py` forecasts), so training and live predictions are
 computed the same way.
 
 ## How the pieces fit
@@ -139,8 +139,9 @@ Changes agreed on 2026-11-15, after a rough tuning run:
   Championship data doesn't help ratings, and the milestone's write-up
   says so.
 - **Saving:** `python backend/elo.py --tune` writes the chosen values and
-  their score to `backend/elo_settings.json`, which is committed. The
-  daily Action uses that file and never re-tunes.
+  their score to `backend/elo_settings.json`, which is committed.
+  Everything else, `predict.py` included, uses that file and never
+  re-tunes.
 
 ## Features
 
@@ -148,8 +149,8 @@ One row per played match in either league. The columns:
 
 **Identity and target:**
 `league`, `season`, `date`, `home_team`, `away_team`, `result`,
-`home_goals`, `away_goals`. The goals are kept for the later Poisson
-model.
+`home_goals`, `away_goals`. The goals are kept for analysis; the model
+predicts only the result.
 
 **Match-level:**
 - `home_advantage`: `H` for this game
@@ -212,9 +213,9 @@ Rules:
 - `build_features(matches)` returns the table for every played match.
 - `features_for(games, matches)` returns rows for games that haven't
   happened (columns `league`, `date`, `home_team`, `away_team`), using the
-  state after all played matches. It feeds:
-  - upcoming fixtures in milestone 4
-  - all 380 team pairs for the picker
+  state after all played matches. `predict.py` (milestone 4) uses the
+  same code through `features_and_state` and `rows_for`, which build the
+  training rows and the state in one pass.
 - A future game weeks away uses today's state. Results in between are not
   simulated.
 - **A test makes sure the two paths agree:** asking `features_for` about an

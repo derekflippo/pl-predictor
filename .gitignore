@@ -4,8 +4,9 @@ backend/data/
 # Trained models
 backend/models/
 
-# Personal Claude Code settings (the session-log hook)
+# Personal Claude Code settings and notes (the session-log hook, working notes)
 .claude/settings.local.json
+CLAUDE.local.md
 
 # Python
 __pycache__/
