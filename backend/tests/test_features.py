@@ -58,6 +58,44 @@ def test_first_game_has_empty_windows():
     assert np.isnan(row["home_came_up"])  # first season: previous league unknown
 
 
+def two_leagues():
+    """E wins the made-up Championship and goes up; D goes down."""
+    pl = games(
+        ("2000-01", "2000-08-19", "A", "B", 2, 0), ("2000-01", "2000-08-19", "C", "D", 1, 1),
+        ("2000-01", "2000-08-26", "B", "C", 0, 1), ("2000-01", "2000-08-26", "D", "A", 3, 1),
+        ("2001-02", "2001-08-18", "E", "A", 1, 1), ("2001-02", "2001-08-18", "B", "C", 0, 0),
+        ("2001-02", "2001-08-25", "A", "B", 1, 0), ("2001-02", "2001-08-25", "C", "E", 0, 2),
+    )
+    ch = games(
+        ("2000-01", "2000-08-19", "E", "F", 3, 0), ("2000-01", "2000-08-19", "G", "H", 0, 0),
+        ("2000-01", "2000-08-26", "F", "G", 1, 2), ("2000-01", "2000-08-26", "H", "E", 0, 2),
+        ("2001-02", "2001-08-18", "D", "F", 2, 1), ("2001-02", "2001-08-18", "G", "H", 1, 1),
+    )
+    ch["league"] = "E1"
+    return pd.concat([pl, ch]).sort_values("date", kind="stable").reset_index(drop=True)
+
+
+def test_raw_form_starts_again_in_a_new_league():
+    table = build_features(two_leagues(), elo())
+    first = table[(table["home_team"] == "E") & (table["league"] == "E0")].iloc[0]
+    assert first["home_came_up"] == 1
+    # E's two Championship wins don't count as Premier League form...
+    assert first["home_games_5"] == 0
+    for name in ("ppg_5", "gf_10", "ga_5", "sotf_5", "sota_10", "venue_ppg_5"):
+        assert np.isnan(first[f"home_{name}"])
+    # ...but its results against Elo's expectation do, because they're opponent-adjusted.
+    assert not np.isnan(first["home_vs_exp_5"])
+    assert not np.isnan(first["home_rest_days"])
+
+    second = table[(table["away_team"] == "E") & (table["league"] == "E0")].iloc[0]
+    assert second["away_games_5"] == 1  # only the 1-1 draw with A
+    assert second["away_ppg_5"] == 1 and second["away_gf_5"] == 1
+    assert np.isnan(second["away_venue_ppg_5"])  # its only away game was in the Championship
+
+    relegated = table[(table["home_team"] == "D") & (table["league"] == "E1")].iloc[0]
+    assert relegated["home_came_down"] == 1 and relegated["home_games_10"] == 0
+
+
 def test_rest_days_are_capped():
     later = pd.concat([SEASON, games(("2000-01", "2000-12-01", "A", "B", 0, 0))])
     assert build_features(later, elo()).iloc[-1]["home_rest_days"] == 21

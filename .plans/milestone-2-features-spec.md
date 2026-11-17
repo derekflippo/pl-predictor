@@ -30,7 +30,7 @@ computed the same way.
 | Elo settings | Tuned on 2002-03 to 2018-19 only; 2019-20 on stays unseen for milestone 3 |
 | Warm-up | Ratings start in August 2000; feature rows from 2002-03 on are used for training |
 | Home advantage | Drifts with recent league-wide home results |
-| Promoted teams' form | Championship games count, alongside opponent-adjusted form |
+| Promoted teams' form | Raw form counts only games in the team's current league; opponent-adjusted form (`vs_exp`) counts both leagues. Changed on 2026-11-16 (see "Rules" under Features) |
 | Form measures | Raw and opponent-adjusted |
 | Form windows | Fixed: last 5 and last 10 games |
 | Future games | One code path for played and upcoming games |
@@ -164,21 +164,33 @@ model.
 | `gf_5`, `gf_10`, `ga_5`, `ga_10` | Goals for / against per game, same windows |
 | `sotf_5`, `sotf_10`, `sota_5`, `sota_10` | Shots on target for / against per game, same windows, using only games that have shot data |
 | `vs_exp_5`, `vs_exp_10` | Results above expected: the average of (actual score - Elo expected score) over the window. Positive means better results than Elo predicted against those opponents |
-| `venue_ppg_5` | Points per game over the last 5 home games (for the home team) or the last 5 away games (for the away team) |
+| `venue_ppg_5` | Points per game over the last 5 home games (for the home team) or the last 5 away games (for the away team), in the current league |
 | `rest_days` | Days since the team's last league game, capped at 21 so the summer break doesn't dominate |
 | `came_up`, `came_down` | 1 if the team changed league since last season |
-| `games_5`, `games_10` | How many games the window actually holds (fewer than 5/10 early on) |
+| `games_5`, `games_10` | How many games the raw-form window holds (fewer than 5/10 early in 2000-01 and after a change of league). Not a model input: see milestone 3 |
 
 Rules:
 
-- **Windows** are a team's last N league games in either league, so they
-  continue across seasons and across promotion. Opponent-adjusted form
-  (`vs_exp`) corrects for weak Championship opponents.
+- **Raw form windows** (`ppg`, `gf`, `ga`, `sotf`, `sota`, `venue_ppg`)
+  are a team's last N games **in its current league**. They continue
+  across seasons, and start empty when a team changes league.
+- **`vs_exp` windows** are a team's last N games in either league. It is
+  already measured against Elo's expectation, so easy wins over weak
+  Championship teams barely raise it.
+- **Why, changed on 2026-11-16:** raw numbers only compare fairly within
+  one league. With Championship games counted, promoted teams went into
+  their first Premier League game with `ppg_10` 1.96, then earned 1.01
+  points per game that season; other teams went in at 1.48 and earned 1.44
+  (real numbers, 2002-03 to 2018-19). On the validation seasons the change
+  scores within noise of the old rule (−0.0013 ± 0.0015 log loss), so it
+  rests on the logic more than on the data.
 - **Short windows** use the games available. A window with no games is
   left empty (NaN).
 - **Missing values** stay as NaN in the table, and milestone 3 decides how
   to fill them. Expected cases:
   - the first weeks of 2000-01 (warm-up seasons, not used for training)
+  - a team's first game after changing league: raw form and venue form
+    (75 Premier League rows from 2002-03 on)
   - teams new to the Championship
   - 1 Championship match without shot data
 - **The model only learns from these columns.** Model-time choices, such
@@ -314,6 +326,8 @@ gains `jupyter` and `matplotlib` (check 3).
   and neither one's result affects the other's features.
 - **Both paths agree:** `features_for` on a played match (with only
   earlier matches) equals that match's `build_features` row.
+- **League change:** a promoted team's raw form starts empty in its new
+  league, while its `vs_exp` keeps the Championship games.
 - **Windows:** a team with 3 past games has `games_5 = 3`, and its
   averages use those 3 games.
 - **Checks 1, 2 and 4** run as tests when the downloaded data exists, and
