@@ -213,3 +213,8 @@ is the final model.
   [openfootball](https://github.com/openfootball/football.json) (public domain)
 
 Not betting advice.
+
+## Licence
+
+The code is under the [MIT licence](LICENSE). The licence doesn't cover
+the data: football-data.co.uk's terms apply to their files.

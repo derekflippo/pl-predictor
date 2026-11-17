@@ -67,7 +67,8 @@ pytest                            # data-dependent tests skip without downloads
 ## Session log
 
 The log lives outside the repo, in `~/.claude/session-logs/pl-predictor/`,
-because the repo is public. A session-start hook in
+because the repo is meant to be public (it was still private on
+2026-11-16). A session-start hook in
 `.claude/settings.local.json` (not committed) prints `STATUS.md` and the
 last two daily logs into each new chat.
 
