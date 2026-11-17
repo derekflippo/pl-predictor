@@ -13,6 +13,7 @@ learning project: the user is learning machine learning as we build.
 - **Specs:** read the right one before starting a milestone.
   - `.plans/pl-predictor-v1-spec.md`: the whole project, milestones 0–8
   - `.plans/milestone-2-features-spec.md`: milestone 2 in detail
+  - `.plans/milestone-3-model-spec.md`: milestone 3, the model and its test
   - The decisions in them were made with the user in interviews. Don't
     change one without asking.
 - **Methodology explainer:** a private page for the user, at
@@ -30,7 +31,9 @@ python backend/fixtures.py        # fixtures matched to results, next matchweek
 python backend/elo.py --tune      # only when re-tuning; writes backend/elo_settings.json
 python backend/features.py        # builds backend/data/features.csv
 python backend/check_ratings.py   # rating checks 1, 2 and 4
-python backend/train.py           # first model, scored on validation seasons 2015-16 to 2018-19
+python backend/train.py --tune    # only when re-tuning; writes backend/model_settings.json
+python backend/train.py           # trains on every finished match, prints the weights
+python backend/evaluate.py        # the test, 2019-20 to 2025-26; --validation for 2015-16 to 2018-19
 pytest                            # data-dependent tests skip without downloads
 ```
 
@@ -92,5 +95,10 @@ last two daily logs into each new chat.
   on are the final test set for milestone 3.
 - Benchmarks on the test seasons 2019-20 to 2025-26 (2,660 matches):
   - always picking home: 43.4% accuracy
-  - average shares every game: log loss 1.074
+  - average shares every game: log loss 1.073 (training shares, walk-forward)
   - bookmakers: 54.5% accuracy, log loss 0.968
+  - Elo only: log loss 0.990
+  - the model (milestone 3): 52.7% accuracy, log loss 0.983
+- The test seasons were scored once, on 2026-11-16, with the settings
+  frozen in commit 2f92dcd. Don't tune anything on them. A new model idea
+  is judged on the validation seasons first.

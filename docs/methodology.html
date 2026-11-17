@@ -242,11 +242,11 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
   <main>
     <header class="hero">
       <p class="eyebrow">pl-predictor · methodology · updated 16 Nov 2026</p>
-      <h1>How the predictor will work</h1>
+      <h1>How the predictor works</h1>
       <p class="lede">The predictor turns 26 years of match results into three numbers for every upcoming Premier League game: the chance of a home win, a draw and an away win. This page goes through each step in the order the code runs, so you can check that each choice makes sense.</p>
       <div class="status">
-        <div><b>Built</b>Data pipeline (milestones 0 and 1), then Elo ratings and the feature table, tuned and checked (milestone 2).</div>
-        <div><b>Planned</b>The model (milestone 3). Sections 6 and 7 describe the plan; sections 3 to 5 and 8 are built.</div>
+        <div><b>Built</b>Data pipeline (milestones 0 and 1), Elo ratings and the feature table (milestone 2), and the model, tuned and tested (milestone 3).</div>
+        <div><b>Planned</b>Daily predictions locked before kickoff (milestones 4 and 5), then the website (milestone 6).</div>
         <div><b>How to read the numbers</b><span class="tag real">Real data</span> comes from our downloaded matches. <span class="tag ex">Example</span> numbers only show how a step works.</div>
       </div>
       <nav class="toc-inline" aria-label="Sections">
@@ -302,14 +302,14 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
             <text class="small" x="690" y="150" text-anchor="middle" style="fill: var(--accent)">the only part that is trained</text>
           </svg>
         </div>
-        <figcaption>The pipeline from raw results to predictions. Milestone 2 built the second and third boxes; milestone 3 builds the fourth.</figcaption>
+        <figcaption>The pipeline from raw results to predictions. Milestone 2 built the second and third boxes; milestone 3 built the fourth.</figcaption>
       </figure>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Layer</th><th>What it is</th><th>Learns from data?</th></tr></thead>
           <tbody>
             <tr><td><strong>Elo ratings</strong></td><td>A formula that updates each team's strength rating after every game</td><td>No. Three of its four settings were tuned once; the fourth is fixed.</td></tr>
-            <tr><td><strong>Features</strong></td><td>40 numbers per match that describe both teams before kickoff: 19 per team, plus home advantage and Elo's expected score. Elo is one of them.</td><td>No</td></tr>
+            <tr><td><strong>Features</strong></td><td>40 numbers per match that describe both teams before kickoff: 19 per team, plus home advantage and Elo's expected score. Elo is one of them. The model uses 29 (section 6).</td><td>No</td></tr>
             <tr><td><strong>Logistic regression</strong></td><td>Turns a match's features into three probabilities</td><td>Yes. Training finds one weight per feature for each outcome.</td></tr>
           </tbody>
         </table>
@@ -604,16 +604,16 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
       <div class="prose"><p>Here \(S_j\) and \(E_j\) are the actual and expected score in each recent game, and \(d - d_{\text{prev}}\) is the number of days since the team's previous league game.</p></div>
 
       <div class="cards">
-        <div class="card"><h4>home_elo, away_elo</h4><p><span class="k">Measures</span>Overall strength, from every result since 2000.</p><p><span class="k">Method</span>The Elo walk in section 4, read before the match.</p><p><span class="k">Example</span>1820 against 1610.</p></div>
+        <div class="card"><h4>home_elo, away_elo</h4><p><span class="k">Measures</span>Overall strength, from every result since 2000.</p><p><span class="k">Method</span>The Elo walk in section 4, read before the match.</p><p><span class="k">Example</span>1820 against 1610.</p><p><span class="k">In the model</span>As their difference <code>elo_diff</code> and sum <code>elo_sum</code>: the same information, with weights that read as "gap" and "level".</p></div>
         <div class="card"><h4>ppg_5, ppg_10</h4><p><span class="k">Measures</span>Recent results, the way the league table counts them.</p><p><span class="k">Method</span>Rolling average of points over the last 5 and 10 league games, in the team's current league.</p><p><span class="k">Example</span>W W D L W gives 10 points, so 2.0.</p></div>
         <div class="card"><h4>gf_5, ga_5, gf_10, ga_10</h4><p><span class="k">Measures</span>Attack and defense separately. A 4–3 win and a 1–0 win give the same points.</p><p><span class="k">Method</span>Rolling average of goals scored and conceded.</p><p><span class="k">Example</span>2.1 scored and 0.6 conceded per game.</p></div>
         <div class="card"><h4>sotf_5, sota_5, sotf_10, sota_10</h4><p><span class="k">Measures</span>Chances created and allowed. Goals involve a lot of luck; shots on target less so.</p><p><span class="k">Method</span>Rolling average of shots on target, using only games with shot data.</p><p><span class="k">Why</span>Stands in for xG, which only exists from 2026-27.</p></div>
-        <div class="card"><h4>vs_exp_5, vs_exp_10</h4><p><span class="k">Measures</span>Form adjusted for opponent strength.</p><p><span class="k">Method</span>Average of actual minus expected score over the window (table below).</p><p><span class="k">Why</span>Easy wins over weak Championship teams were expected, so they barely raise it. That's why it's the one form feature that keeps a promoted team's Championship games.</p></div>
+        <div class="card"><h4>vs_exp_5, vs_exp_10</h4><p><span class="k">Measures</span>Form adjusted for opponent strength.</p><p><span class="k">Method</span>Average of actual minus expected score over the window (table below).</p><p><span class="k">Why</span>Easy wins over weak Championship teams were expected, so they barely raise it. That's why it's the one form feature that keeps a promoted team's Championship games.</p><p><span class="k">Not a model input</span>Removing it scored slightly better on validation in milestone 3. <span class="tag real">Real data</span></p></div>
         <div class="card"><h4>venue_ppg_5</h4><p><span class="k">Measures</span>Form at this kind of venue.</p><p><span class="k">Method</span>Home team: points per game over its last 5 home games. Away team: its last 5 away games.</p><p><span class="k">Why</span>Some teams are much stronger at home.</p></div>
         <div class="card"><h4>rest_days</h4><p><span class="k">Measures</span>Rest since the last league game.</p><p><span class="k">Method</span>Days between matches, capped at 21 so the summer break doesn't look like extra rest.</p><p><span class="k">Limit</span>Cup and European games aren't in the data.</p></div>
         <div class="card"><h4>came_up, came_down</h4><p><span class="k">Measures</span>Whether the team changed league since last season.</p><p><span class="k">Method</span>1 or 0, found from which league each team played in.</p><p><span class="k">Why</span>Lets the model learn what the rating conversion misses.</p></div>
         <div class="card"><h4>games_5, games_10</h4><p><span class="k">Measures</span>How many games a raw-form window actually holds.</p><p><span class="k">Method</span>A count, at most 5 or 10. Fewer early in 2000-01 and just after a change of league.</p><p><span class="k">Not a model input</span>Almost every value is 5 or 10, so the rare short window looks extreme to the model, and it over-reacted. <span class="tag real">Real data</span> tested in milestone 3.</p></div>
-        <div class="card"><h4>home_advantage, elo_expected</h4><p><span class="k">Measures</span>The match as a whole, not one team.</p><p><span class="k">Method</span>\(H\) from section 4, and the expected home score \(E\) for this match.</p><p><span class="k">Example</span>56 points, and 0.82.</p></div>
+        <div class="card"><h4>home_advantage, elo_expected</h4><p><span class="k">Measures</span>The match as a whole, not one team.</p><p><span class="k">Method</span>\(H\) from section 4, and the expected home score \(E\) for this match.</p><p><span class="k">Example</span>56 points, and 0.82.</p><p><span class="k">In the model</span><code>elo_expected</code> is an input. <code>home_advantage</code> was left out in milestone 3, because removing it scored slightly better on validation.</p></div>
       </div>
 
       <div class="prose"><h3>Worked example: results above expected</h3></div>
@@ -629,13 +629,13 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
         </table>
       </div>
       <div class="prose">
-        <p><span class="tag ex">Example</span> Positive means better results than Elo predicted against those opponents. This number is close to how much the team's Elo moved over those games, without the win-margin weighting. Milestone 3 will show whether the model gets extra value from it.</p>
+        <p><span class="tag ex">Example</span> Positive means better results than Elo predicted against those opponents. This number is close to how much the team's Elo moved over those games, without the win-margin weighting. Milestone 3 found it adds nothing on top of Elo and raw form, so the model leaves it out.</p>
         <h3>Rules for every feature</h3>
         <ul>
           <li><strong>Only the past.</strong> Every number for a match on date D comes from matches before D (section 3).</li>
           <li><strong>Missing values stay empty.</strong> In Premier League rows from 2002-03 on, the only gaps are a promoted team's first home and first away game, where its raw form window is still empty: 75 rows each. The other gaps are in the 2000-01 warm-up season and in a few Championship games of teams new from League One. <span class="tag real">Real data</span> Milestone 3 fills them with the training seasons' median.</li>
           <li><strong>One code path.</strong> The same code builds rows for past matches and for upcoming games. A test checks that both give the same row for a past match.</li>
-          <li><strong>Both leagues get rows.</strong> Championship rows have a <code>league</code> column. Milestone 3 tests whether training on them helps Premier League predictions.</li>
+          <li><strong>Both leagues get rows.</strong> Championship rows have a <code>league</code> column. Milestone 3 tested training on them too. The gain was within noise, so the model trains on Premier League rows only.</li>
         </ul>
       </div>
     </section>
@@ -644,7 +644,7 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
     <section id="model">
       <h2><span class="num">06</span>The model: logistic regression</h2>
       <div class="prose">
-        <p>Logistic regression takes the 40 features of a match and returns three probabilities that add up to 100%: home win, draw, away win. It's the only part of the system that learns from data. Training finds one weight per feature for each outcome, using about 9,000 past Premier League matches.</p>
+        <p>Logistic regression takes 29 numbers about a match and returns three probabilities that add up to 100%: home win, draw, away win. It's the only part of the system that learns from data. Training finds one weight per feature for each outcome, using about 9,000 past Premier League matches.</p>
         <h3>Why not linear regression?</h3>
         <p>Linear regression predicts a number along a straight line. Give it a big enough rating gap and the straight line predicts more than 100% or less than 0%, which is impossible for a probability. Logistic regression bends the line into an S-curve that always stays between 0 and 1. It also handles the three outcomes directly. Linear regression would need home, draw and away turned into a made-up number scale.</p>
       </div>
@@ -682,7 +682,7 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
 
       <div class="explorer" id="modelExplorer">
         <h4>Try it: a one-feature model <span class="tag ex">Example weights</span></h4>
-        <p class="hint">This toy model uses one feature, the rating gap including home advantage, with weights picked by hand to look realistic. Milestone 3 learns the real weights from 40 features.</p>
+        <p class="hint">This toy model uses one feature, the rating gap including home advantage, with weights picked by hand to look realistic. The real model learns its weights from 29 inputs. They're shown further down.</p>
         <div class="controls">
           <div class="ctl"><label for="gap2">Rating gap \(x\) <output id="gap2Out" for="gap2">+266</output></label><input type="range" id="gap2" min="-400" max="600" step="5" value="266"></div>
         </div>
@@ -714,10 +714,52 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
       </div>
       <div class="prose">
         <h3>Keeping the weights sensible: regularization</h3>
+        <p>With no limit on its weights, the model can fit quirks of past seasons that won't happen again. That's called <em>overfitting</em>. So training adds a cost for large weights. The model uses <em>elastic net</em>, a mix of two costs:</p>
       </div>
-      <div class="formula">\[ \text{minimize} \quad \text{log loss} + \lambda \sum w^2 \]</div>
+      <div class="formula">\[ \text{minimize} \quad \sum_{i=1}^{N} \text{loss}_i \;+\; \frac{1}{C}\Big(\tfrac{1}{2}\sum |w| + \tfrac{1}{4}\sum w^2\Big) \]</div>
       <div class="prose">
-        <p>\(\lambda\) (lambda) sets a penalty for large weights. Without it, the model can fit quirks of past seasons that won't happen again. That's called <em>overfitting</em>. Milestone 3 picks \(\lambda\) by testing on seasons the model didn't train on.</p>
+        <p>The \(\sum |w|\) part (called L1) can push a weak weight all the way to 0, so the model drops inputs it doesn't need. The \(\sum w^2\) part (L2) shrinks the other weights and shares weight between inputs that overlap. \(C\) sets the strength: a smaller \(C\) means a stronger penalty. Textbooks often write the strength as \(\lambda = 1/C\).</p>
+
+        <h3>How the settings were chosen</h3>
+        <p>Every setting was chosen on the <strong>validation seasons</strong>, 2015-16 to 2018-19 (1,520 games), walk-forward: each season was predicted by a model trained on 2002-03 up to the season before. Two rules were written down before the search ran:</p>
+        <ul>
+          <li><strong>\(C\): the one-standard-error rule.</strong> Try 17 values from 0.0001 to 1. Take the smallest \(C\), the strongest penalty, whose validation log loss is within one standard error of the best. A simpler model that scores just as well is less likely to be fitting noise.</li>
+          <li><strong>Every other change must earn its place.</strong> Start from L2 on all 34 inputs, with Premier League rows only. Keep a change only if it scores better by more than one standard error.</li>
+        </ul>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Step</th><th class="r">Validation log loss</th><th>Kept?</th></tr></thead>
+          <tbody>
+            <tr><td>L2, \(C\) by the one-SE rule (0.00316)</td><td class="r">0.9591</td><td>The starting point</td></tr>
+            <tr><td>L1 instead</td><td class="r">0.9578</td><td>No: better by 0.0014 ± 0.0016</td></tr>
+            <tr><td>Elastic net instead (\(C\) = 0.0316)</td><td class="r">0.9570</td><td><strong>Yes</strong>: better by 0.0022 ± 0.0010</td></tr>
+            <tr><td>Also train on Championship rows</td><td class="r">0.9562</td><td>No: better by 0.0008 ± 0.0015</td></tr>
+            <tr><td>Leave out <code>home_advantage</code> and <code>vs_exp</code>, then \(C\) again</td><td class="r">0.9563</td><td><strong>Yes</strong>: removing each scored better by more than one SE</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose">
+        <p><span class="tag real">Real data</span> Leaving out one group of inputs at a time also shows which ones matter. Shots on target cost the most to remove (+0.0037 ± 0.0016), then <code>came_up</code> (+0.0010 ± 0.0008) and the Elo level <code>elo_sum</code> (+0.0007 ± 0.0003). The final settings: elastic net, \(C\) = 0.0316, 29 inputs.</p>
+
+        <h3>The weights it learned</h3>
+        <p>The model that makes live predictions trains on every finished Premier League match since 2002-03, 9,220 games so far. These are its largest weights. The inputs are standardized, so each weight is the change in an outcome's score \(z\) when that input goes up by one standard deviation. <span class="tag real">Real data</span></p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Input</th><th class="r">Home</th><th class="r">Draw</th><th class="r">Away</th></tr></thead>
+          <tbody>
+            <tr><td><code>elo_diff</code>: home rating minus away rating</td><td class="r">+0.426</td><td class="r">0</td><td class="r">−0.192</td></tr>
+            <tr><td><code>elo_expected</code>: Elo's expected home score</td><td class="r">+0.009</td><td class="r">0</td><td class="r">−0.269</td></tr>
+            <tr><td><code>away_sota_10</code>: shots on target the away team allowed</td><td class="r">+0.042</td><td class="r">0</td><td class="r">−0.111</td></tr>
+            <tr><td><code>home_sotf_5</code>: shots on target the home team made</td><td class="r">+0.052</td><td class="r">0</td><td class="r">−0.078</td></tr>
+            <tr><td><code>away_sotf_10</code>: shots on target the away team made</td><td class="r">−0.034</td><td class="r">0</td><td class="r">+0.090</td></tr>
+            <tr><td><code>elo_sum</code>: both ratings added</td><td class="r">+0.111</td><td class="r">−0.048</td><td class="r">0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose">
+        <p>Read a row across. A bigger Elo gap raises the home score and lowers the away score. Shots on target come next: an away team that has made many shots on target lately gets a higher away score. When both teams are strong (a high <code>elo_sum</code>), the draw score goes down a little. Elastic net set 18 of the 29 draw weights to exactly 0, and three inputs to 0 for every outcome: <code>home_ga_5</code>, <code>away_gf_5</code> and <code>away_rest_days</code>.</p>
 
         <h3>Why logistic regression</h3>
         <ul>
@@ -730,7 +772,7 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
         <p><strong>Its limit:</strong> each feature's effect on the score \(z\) is a straight line. It can't discover combinations by itself, such as "strong team <em>and</em> tired", unless we build that combination as a feature. That's why a later milestone tries gradient boosting, which can find combinations, using the same evaluation.</p>
 
         <h3>The draw problem</h3>
-        <p>About a quarter of games end level, but a draw is rarely the single most likely outcome. In the 2,660 games of the test seasons, the bookmakers never once made a draw the favourite. Their highest draw probability was 32.3%. <span class="tag real">Real data</span> Our model will behave the same way. So the site shows all three probabilities, and says "Close call" when the top two are within 5 points, instead of always naming a pick.</p>
+        <p>About a quarter of games end level, but a draw is rarely the single most likely outcome. In the 2,660 games of the test seasons, the bookmakers never once made a draw the favourite. Their highest draw probability was 32.3%. <span class="tag real">Real data</span> Our model behaves the same way: on those seasons it never made a draw the favourite, and its highest draw probability was 33.5%. So the site shows all three probabilities, and says "Close call" when the top two are within 5 points, instead of always naming a pick.</p>
       </div>
     </section>
 
@@ -738,21 +780,23 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
     <section id="judging">
       <h2><span class="num">07</span>Judging the model</h2>
       <div class="prose">
-        <p>Milestone 3 scores the model on seasons it never trained on, and compares it with three benchmarks. These are their real scores on the test seasons, 2019-20 to 2025-26 (2,660 matches): <span class="tag real">Real data</span></p>
+        <p>The final test scored the model on seasons it never trained on, 2019-20 to 2025-26 (2,660 matches), next to four benchmarks. The settings in section 6 were committed to git before the test ran, and the test ran once. <span class="tag real">Real data</span></p>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Benchmark</th><th class="r">Accuracy</th><th class="r">Log loss</th></tr></thead>
+          <thead><tr><th>Predictor</th><th class="r">Accuracy</th><th class="r">Log loss</th></tr></thead>
           <tbody>
             <tr><td>Always pick the home team</td><td class="r">43.4%</td><td class="r">—</td></tr>
-            <tr><td>Predict the average shares every game (46.6% / 25.1% / 28.4%, from 2002-03 to 2018-19)</td><td class="r">43.4%</td><td class="r">1.074</td></tr>
+            <tr><td>Predict the training seasons' average shares every game</td><td class="r">43.4%</td><td class="r">1.073</td></tr>
+            <tr><td>Elo only: logistic regression on the rating difference</td><td class="r">52.5%</td><td class="r">0.990</td></tr>
+            <tr><td><strong>Our model</strong></td><td class="r"><strong>52.7%</strong></td><td class="r"><strong>0.983</strong></td></tr>
             <tr><td>Bookmakers (average odds, margin removed)</td><td class="r">54.5%</td><td class="r">0.968</td></tr>
           </tbody>
         </table>
       </div>
       <div class="prose">
         <p><strong>Accuracy</strong> is the share of games where the most likely outcome happened. <strong>Log loss</strong> (section 6) rewards honest probabilities, and lower is better. Log loss is the main score. The average-shares benchmark always rates "home" highest, so its accuracy equals always picking home.</p>
-        <p><strong>The goal:</strong> clearly beat the first two, and get as close as we can to the bookmakers. They use injuries, lineups and the money of everyone betting, so matching them would be a strong result. Their probabilities come from the odds:</p>
+        <p><strong>The result.</strong> The model clearly beats the first two. It also beats Elo only, by 0.0063 ± 0.0019 log loss, so the form inputs add real information. It is 0.0156 ± 0.0029 behind the bookmakers, who also use injuries, lineups and the money of everyone betting. Their probabilities come from the odds:</p>
       </div>
       <div class="formula">\[ q_k = \frac{1/\text{odds}_k}{1/\text{odds}_{\text{home}} + 1/\text{odds}_{\text{draw}} + 1/\text{odds}_{\text{away}}} \]</div>
       <div class="prose">
@@ -768,10 +812,26 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
             <g id="wfRows"></g>
           </svg>
         </div>
-        <figcaption>Years are the year each season starts. Milestone 3 reports the score for each season and the average, next to the three benchmarks.</figcaption>
+        <figcaption>Years are the year each season starts. The validation seasons used the same walk-forward steps to choose the settings.</figcaption>
       </figure>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Season</th><th class="r">Our model</th><th class="r">Elo only</th><th class="r">Bookmakers</th></tr></thead>
+          <tbody>
+            <tr><td>2019-20</td><td class="r">0.974</td><td class="r">0.979</td><td class="r">0.973</td></tr>
+            <tr><td>2020-21</td><td class="r">1.034</td><td class="r">1.047</td><td class="r">1.004</td></tr>
+            <tr><td>2021-22</td><td class="r">0.957</td><td class="r">0.958</td><td class="r">0.936</td></tr>
+            <tr><td>2022-23</td><td class="r">0.972</td><td class="r">0.979</td><td class="r">0.966</td></tr>
+            <tr><td>2023-24</td><td class="r">0.925</td><td class="r">0.933</td><td class="r">0.909</td></tr>
+            <tr><td>2024-25</td><td class="r">0.985</td><td class="r">0.995</td><td class="r">0.971</td></tr>
+            <tr><td>2025-26</td><td class="r">1.036</td><td class="r">1.036</td><td class="r">1.015</td></tr>
+          </tbody>
+        </table>
+      </div>
       <div class="prose">
-        <p><strong>Calibration</strong> is the last check. When the model says 60%, those games should go that way about 60% of the time. Milestone 3 plots this.</p>
+        <p><span class="tag real">Real data</span> Log loss for each test season. The model beats Elo only in six of the seven seasons and ties in 2025-26. Some seasons are harder for everyone: in 2025-26 even the bookmakers scored above 1.</p>
+        <p><strong>2020-21 was played without crowds.</strong> Home teams won 37.9% of games. The model expected 46.1%, because nothing in its inputs says whether fans are in the ground. The bookmakers adjusted part of the way, to 41.8%. That's the model's worst season against them.</p>
+        <p><strong>Calibration</strong> is the last check. When the model says 60%, those games should go that way about 60% of the time. They do: most groups are within two standard errors of the target. Home wins at 40–60% happen slightly less often than predicted, and away wins slightly more often, because the test seasons had fewer home wins than the training seasons. The charts are in <code>notebooks/evaluation.ipynb</code>.</p>
       </div>
     </section>
 
@@ -809,6 +869,11 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
             <tr><td>Raw and opponent-adjusted form</td><td>Raw is readable; adjusted is fairer</td><td>Only one of them</td></tr>
             <tr><td>Raw form counts only the current league (changed 16 Nov)</td><td>Championship points made promoted teams look like top sides: <code>ppg_10</code> of 1.96 going into their first Premier League game, then 1.01 points per game earned that season. <span class="tag real">Real data</span> On the validation seasons the change scores within noise of the old rule, so it rests on the logic.</td><td>Counting Championship games in raw form</td></tr>
             <tr><td>One code path for past and future games</td><td>Live predictions are computed exactly like training rows</td><td>Separate prediction code</td></tr>
+            <tr><td>Elo goes in as its difference and sum</td><td>The same information as the two ratings, but the weights read as "gap" and "level"</td><td><code>home_elo</code> and <code>away_elo</code> as they are</td></tr>
+            <tr><td>Elastic net, with \(C\) by the one-SE rule</td><td>It beat L2 on validation by more than one SE. The rule prefers the simpler model when scores are close</td><td>L2 alone; the \(C\) with the very best score</td></tr>
+            <tr><td>Train on Premier League rows only</td><td>Adding Championship rows helped by less than one SE</td><td>Training on both leagues</td></tr>
+            <tr><td><code>home_advantage</code> and <code>vs_exp</code> left out</td><td>Removing each scored better on validation, though by tiny margins. Home wins fell in the test seasons, so <code>home_advantage</code> is worth another look before the next model change</td><td>All 34 inputs</td></tr>
+            <tr><td>Test seasons scored once, settings frozen first</td><td>An honest test: nothing was chosen after seeing it</td><td>Tuning again after looking at the test</td></tr>
             <tr><td>Logistic regression first</td><td>Real probabilities, readable weights, a strong baseline</td><td>Starting with a complex model</td></tr>
             <tr><td>Log loss as the main score</td><td>Rewards honest probabilities</td><td>Accuracy only</td></tr>
           </tbody>
@@ -817,7 +882,7 @@ footer { max-width: 1180px; margin: 0 auto; padding-top: 28px; font-size: 13.5px
     </section>
   </main>
 </div>
-<footer>Updated 16 November 2026, during milestone 3. Results from football-data.co.uk; fixtures from openfootball. Not betting advice.</footer>
+<footer>Updated 16 November 2026, at the end of milestone 3. Results from football-data.co.uk; fixtures from openfootball. Not betting advice.</footer>
 
 <script>
 (function () {
