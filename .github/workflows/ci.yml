@@ -1,0 +1,33 @@
+# Runs the tests on every pull request and on every push to main.
+# backend/data/ isn't in git, so the tests that need downloaded data skip here.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.10 gets older pandas and scikit-learn; 3.12 gets the newest
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install
+        run: pip install -r backend/requirements.txt pytest
+      - name: Show versions
+        run: python -c "import sys, pandas, sklearn; print(sys.version.split()[0], 'pandas', pandas.__version__, 'scikit-learn', sklearn.__version__)"
+      - name: Test
+        run: pytest -q

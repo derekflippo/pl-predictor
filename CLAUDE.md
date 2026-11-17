@@ -43,6 +43,10 @@ pytest                            # data-dependent tests skip without downloads
 ```
 
 - `backend/data/` is gitignored. Rebuild it with the commands above.
+- CI (`.github/workflows/ci.yml`) runs pytest on Python 3.10 and 3.12 for
+  every pull request. The data tests skip there.
+- `train.make_model` supports scikit-learn before and after 1.8, which
+  deprecated `penalty`. Both give the same model.
 - Python is the user's Anaconda install, which already has pandas,
   scikit-learn and pytest.
 
@@ -63,7 +67,8 @@ pytest                            # data-dependent tests skip without downloads
 ## Session log
 
 The log lives outside the repo, in `~/.claude/session-logs/pl-predictor/`,
-because the repo is public. A session-start hook in
+because the repo is meant to be public (it was still private on
+2026-11-16). A session-start hook in
 `.claude/settings.local.json` (not committed) prints `STATUS.md` and the
 last two daily logs into each new chat.
 

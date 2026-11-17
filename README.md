@@ -34,9 +34,20 @@ the full design.
 
 ## Setup
 
-Requires Python 3.10+.
+Requires Python 3.10+. Tested with pandas 2.2 and 3.1, and scikit-learn
+1.7 and 1.9: a fresh install with the newest versions gives the same
+predictions.
 
 ```bash
+pip install -r backend/requirements.txt
+```
+
+To keep the packages separate from the rest of your Python, make a
+virtual environment first:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
@@ -166,6 +177,10 @@ pytest
 Some tests check the downloaded data and are skipped if you haven't run
 `download_data.py` yet.
 
+GitHub runs the tests on every pull request and every push to `main`, on
+Python 3.10 and 3.12 ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
+There's no downloaded data there, so the data tests skip.
+
 ## Roadmap
 
 0. [x] **Data pipeline**: download and clean every Premier League season
@@ -178,7 +193,7 @@ Some tests check the downloaded data and are skipped if you haven't run
    Elo only, average shares, "always pick home" and the bookmakers
 4. [x] **Predict**: retrain and predict the next matchweek or any game
    you name, on your own computer
-5. [ ] **Publish**: a quick start that works from a fresh clone, tests on
+5. [x] **Publish**: a quick start that works from a fresh clone, tests on
    every pull request, data terms checked
 
 Dropped on 2026-11-16: the website, the daily update and locked track
@@ -188,8 +203,18 @@ is the final model.
 ## Data sources
 
 - Results, match stats and odds:
-  [football-data.co.uk](https://www.football-data.co.uk/)
+  [football-data.co.uk](https://www.football-data.co.uk/). Their
+  [data page](https://www.football-data.co.uk/data.php) says the data is
+  free, but intended for private individuals only, and not for commercial
+  use. This repo doesn't include any of their files:
+  `download_data.py` downloads them to your own computer, and fetches past
+  seasons only once. Please use the data on their terms.
 - Upcoming fixtures:
   [openfootball](https://github.com/openfootball/football.json) (public domain)
 
 Not betting advice.
+
+## Licence
+
+The code is under the [MIT licence](LICENSE). The licence doesn't cover
+the data: football-data.co.uk's terms apply to their files.
