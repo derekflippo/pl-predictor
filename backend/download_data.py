@@ -16,6 +16,7 @@ Usage:
 """
 
 import argparse
+import json
 import time
 import urllib.error
 import urllib.request
@@ -46,12 +47,42 @@ def season_name(start_year):
     return f"{start_year}-{(start_year + 1) % 100:02d}"
 
 
-def fetch(url, path):
-    """Download url to path."""
+class BadDownload(ValueError):
+    """The server answered, but not with the file we asked for."""
+
+
+def check_results(body):
+    """A football-data CSV starts with a header row that names the teams and result."""
+    header = body[:2000].decode("utf-8-sig", errors="replace").split("\n", 1)[0]
+    if not all(name in header for name in ("HomeTeam", "AwayTeam", "FTR")):
+        raise BadDownload(f"not a results CSV (starts {header[:60]!r})")
+
+
+def check_fixtures(body):
+    """An openfootball season file is JSON with a list of matches."""
+    try:
+        matches = json.loads(body)["matches"]
+    except (ValueError, KeyError, TypeError) as error:
+        raise BadDownload(f"not an openfootball fixtures file ({error})") from None
+    if not isinstance(matches, list):
+        raise BadDownload("not an openfootball fixtures file (no list of matches)")
+
+
+def fetch(url, path, check):
+    """Download url to path, if check(body) accepts it.
+
+    The file is written under a temporary name and then renamed, so an
+    error page or a broken download never sits in data/raw looking like a
+    finished season (past seasons are never downloaded again).
+    """
     request = urllib.request.Request(url, headers={"User-Agent": "pl-predictor"})
     with urllib.request.urlopen(request, timeout=30) as response:
-        path.write_bytes(response.read())
+        body = response.read()
     time.sleep(0.5)  # be polite to the server
+    check(body)
+    partial = path.with_name(path.name + ".part")
+    partial.write_bytes(body)
+    partial.replace(path)
 
 
 def download_results(league, start_year, refresh=False):
@@ -60,14 +91,15 @@ def download_results(league, start_year, refresh=False):
     path = RAW_DIR / f"{league}_{code}.csv"
     if path.exists() and not refresh:
         return "cached"
-    fetch(RESULTS_URL.format(code=code, league=league), path)
+    fetch(RESULTS_URL.format(code=code, league=league), path, check_results)
     return "downloaded"
 
 
 def download_fixtures(start_year):
     """Download one season's Premier League fixture list from openfootball."""
     season = season_name(start_year)
-    fetch(FIXTURES_URL.format(season=season), RAW_DIR / f"fixtures_{season}.json")
+    fetch(FIXTURES_URL.format(season=season), RAW_DIR / f"fixtures_{season}.json",
+          check_fixtures)
 
 
 def main():
@@ -89,7 +121,7 @@ def main():
                 status = download_results(league, year,
                                           refresh=args.refresh or year == current)
                 counts[status] += 1
-            except urllib.error.URLError as error:
+            except (urllib.error.URLError, BadDownload) as error:
                 print(f"{name} {season_name(year)}: FAILED ({error})")
                 failed = True
         print(f"{name}: {counts['downloaded']} downloaded, {counts['cached']} already here")
@@ -97,7 +129,7 @@ def main():
     try:
         download_fixtures(current)
         print(f"Fixtures {season_name(current)}: downloaded")
-    except urllib.error.URLError as error:
+    except (urllib.error.URLError, BadDownload) as error:
         print(f"Fixtures {season_name(current)}: FAILED ({error})")
         failed = True
 

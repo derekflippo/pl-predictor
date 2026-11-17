@@ -46,7 +46,11 @@ pytest                            # data-dependent tests skip without downloads
 - CI (`.github/workflows/ci.yml`) runs pytest on Python 3.10 and 3.12 for
   every pull request. The data tests skip there.
 - `train.make_model` supports scikit-learn before and after 1.8, which
-  deprecated `penalty`. Both give the same model.
+  deprecated `penalty`. Both give the same model. Elastic net uses the
+  saga solver with a fixed seed (`train.SEED`), so every run gives exactly
+  the same model.
+- Scores and the no-model baselines (log loss, Brier, paired SE,
+  calibration, average shares, bookmakers) live in `backend/metrics.py`.
 - Python is the user's Anaconda install, which already has pandas,
   scikit-learn and pytest.
 

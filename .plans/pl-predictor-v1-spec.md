@@ -185,6 +185,11 @@ purpose.
   same code as the training rows (`features_for`), so they can't go stale.
 - A game weeks away gets today's ratings and form. Results in between
   aren't simulated.
+- `--date` can't be earlier than the latest result, and a fixture listed
+  before it (postponed) is predicted as if played on it, so no game uses
+  later results or negative rest days.
+- It warns when fixtures listed between the latest result and today have
+  no result: the user hasn't downloaded since they were played.
 - Before a season's first result is in, `predict.py` stops with a message.
   Promoted and relegated teams' ratings are converted at the first game of
   the season, so earlier predictions would use the wrong scale.

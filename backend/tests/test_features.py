@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from elo import Elo
-from features import FEATURE_COLUMNS, build_features, features_for
+from features import FEATURE_COLUMNS, build_features, features_and_state, features_for, rows_for
 from load_data import RAW_DIR
 
 HAVE_DATA = any(RAW_DIR.glob("E0_*.csv"))
@@ -141,3 +141,12 @@ def test_both_paths_agree_on_real_data():
     row = features_for(match, before, elo())
     pd.testing.assert_series_equal(row.loc[0, FEATURE_COLUMNS], table.loc[pick, FEATURE_COLUMNS],
                                    check_names=False)
+
+
+def test_one_walk_gives_the_same_rows_and_state_as_two():
+    table, state = features_and_state(SEASON, elo())
+    assert table.equals(build_features(SEASON, elo()))
+    upcoming = pd.DataFrame({"league": ["E0"], "date": [pd.Timestamp("2031-01-01")],
+                             "home_team": [SEASON["away_team"].iloc[0]],
+                             "away_team": [SEASON["home_team"].iloc[0]]})
+    assert rows_for(upcoming, state).equals(features_for(upcoming, SEASON, elo()))
