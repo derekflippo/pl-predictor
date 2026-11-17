@@ -1,21 +1,29 @@
-"""Train the first model and check it on the validation seasons.
+"""The model: how it is built, tuned and trained.
 
-The first model is a multinomial (softmax) logistic regression on every
-feature except came_down and games_5/games_10 (see LEFT_OUT), with an L2
-penalty at scikit-learn's default C = 1. Missing values are filled with the training median, then every
-feature is standardized. Both steps are fitted on the training rows only.
+The model is a multinomial (softmax) logistic regression. Missing values are
+filled with the training median, then every feature is standardized. Both
+steps are fitted on the training rows only.
 
-Seasons (Premier League rows only):
-    2002-03 to 2014-15   train
-    2015-16 to 2018-19   validate: every comparison here is on these
-    2019-20 to 2025-26   test: sealed, never scored here
+Seasons (only Premier League games are ever predicted and scored):
+    2002-03 onward       training rows
+    2015-16 to 2018-19   validation: tuning and every choice in this file
+    2019-20 to 2025-26   test: scored only by evaluate.py, after the settings
+                         in model_settings.json are frozen
+
+Walk-forward: to predict a season, the model trains on every season from
+2002-03 up to the one before it. Validating 2017-18 trains on 2002-03 to
+2016-17. A model never trains on the season it predicts, or a later one.
 
 Usage:
-    python backend/train.py   # prints a report, writes backend/data/first_model.json
+    python backend/train.py --tune   # step 4 search; writes backend/model_settings.json
+    python backend/train.py          # trains on every finished match; prints the weights
 """
 
+import argparse
 import json
 import warnings
+from datetime import date
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -28,52 +36,116 @@ from sklearn.preprocessing import StandardScaler
 from features import FEATURE_COLUMNS
 from load_data import DATA_DIR
 
-TRAIN = ("2002-03", "2014-15")
-VALIDATE = ("2015-16", "2018-19")
-OUTCOMES = ["H", "D", "A"]  # column order of every probability array in this file
+TRAIN_FROM = "2002-03"
+VALIDATE = ["2015-16", "2016-17", "2017-18", "2018-19"]
+TEST = ["2019-20", "2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26"]
+OUTCOMES = ["H", "D", "A"]  # column order of every probability array in this project
+
 LEFT_OUT = [
     "home_came_down", "away_came_down",  # always 0 in Premier League rows
     # Almost always 5 and 10, so a short window is 8 to 11 SD from the mean
     # after standardizing, and the model extrapolates wildly (tested 2026-11-16).
     "home_games_5", "away_games_5", "home_games_10", "away_games_10",
 ]
-MODEL_FEATURES = [c for c in FEATURE_COLUMNS if c not in LEFT_OUT]
-ELO_ONLY = ["elo_expected"]
+# home_elo and away_elo go in as their difference and their sum: the same
+# information, but the weights say "gap" and "level" directly.
+RAW_ELO = ["home_elo", "away_elo"]
+ELO_FEATURES = ["elo_diff", "elo_sum", "elo_expected", "home_advantage"]
+FORM_FEATURES = [c for c in FEATURE_COLUMNS
+                 if c not in LEFT_OUT + RAW_ELO + ["elo_expected", "home_advantage"]]
+MODEL_FEATURES = ELO_FEATURES + FORM_FEATURES
+ELO_ONLY = ["elo_diff"]  # the baseline: logistic regression on the rating difference
+
+
+def _both(*names):
+    return [f"{side}_{n}" for n in names for side in ("home", "away")]
+
+
+# Feature groups for the ablations. Every model feature except elo_diff is in one.
+GROUPS = {
+    "Elo curve (elo_expected)": ["elo_expected"],
+    "Elo level (elo_sum)": ["elo_sum"],
+    "home advantage": ["home_advantage"],
+    "points (ppg)": _both("ppg_5", "ppg_10"),
+    "goals (gf, ga)": _both("gf_5", "gf_10", "ga_5", "ga_10"),
+    "shots on target (sotf, sota)": _both("sotf_5", "sotf_10", "sota_5", "sota_10"),
+    "vs Elo expectation (vs_exp)": _both("vs_exp_5", "vs_exp_10"),
+    "venue points (venue_ppg_5)": _both("venue_ppg_5"),
+    "rest days": _both("rest_days"),
+    "promoted (came_up)": _both("came_up"),
+}
+C_GRID = [float(f"{10 ** e:.3g}") for e in np.arange(-4, 0.01, 0.25)]  # 0.0001 to 1
 ODDS = ["odds_home", "odds_draw", "odds_away"]
 KEY = ["league", "season", "home_team", "away_team"]
-REPORT_PATH = DATA_DIR / "first_model.json"
+SETTINGS_PATH = Path(__file__).resolve().parent / "model_settings.json"
+DEFAULT_SETTINGS = {"features": MODEL_FEATURES, "c": 1.0, "l1_ratio": None,
+                    "championship_rows": False}
 
+
+# --- Data ---------------------------------------------------------------------------
 
 def load_table(data_dir=DATA_DIR):
-    """Premier League feature rows, with the pre-match odds attached for the benchmark."""
+    """Feature rows for both leagues, with the derived Elo columns and the pre-match odds."""
     features = pd.read_csv(data_dir / "features.csv", parse_dates=["date"])
     odds = pd.read_csv(data_dir / "matches.csv", usecols=KEY + ODDS)
     table = features.merge(odds, on=KEY, how="left", validate="one_to_one")
-    return table[table["league"] == "E0"].reset_index(drop=True)
+    return add_derived(table)
 
 
-def split(table):
-    """Training rows and validation rows. Test seasons are never returned."""
-    train = table[table["season"].between(*TRAIN)]
-    validate = table[table["season"].between(*VALIDATE)]
-    return train.reset_index(drop=True), validate.reset_index(drop=True)
+def add_derived(table):
+    """elo_diff and elo_sum from the two ratings, and a 0/1 Championship flag."""
+    table = table.copy()
+    table["elo_diff"] = table["home_elo"] - table["away_elo"]
+    table["elo_sum"] = table["home_elo"] + table["away_elo"]
+    table["championship"] = (table["league"] == "E1").astype(float)
+    return table
 
 
-def make_model(c=1.0):
-    """Fill missing values, standardize, then softmax logistic regression with L2.
+def before_test(table):
+    """Drop the test seasons and everything after, so tuning can't see them."""
+    return table[table["season"] < TEST[0]]
 
-    C = 1/λ, so a smaller C means a stronger penalty.
+
+def season_rows(table, season):
+    """The Premier League games of one season: the rows a walk-forward step predicts."""
+    return table[(table["season"] == season) & (table["league"] == "E0")]
+
+
+def walk_forward(table, seasons, fit_predict):
+    """Predict each season with a model trained only on the seasons before it.
+
+    fit_predict(train, rows) returns probabilities for `rows`. `train` holds
+    both leagues from TRAIN_FROM to the season before; fit_predict picks the
+    rows it wants. Returns the predicted rows and their probabilities.
     """
-    return make_pipeline(
-        SimpleImputer(strategy="median"),
-        StandardScaler(),
-        LogisticRegression(C=c, max_iter=1000),
-    )
+    parts, probs = [], []
+    for season in seasons:
+        train = table[(table["season"] >= TRAIN_FROM) & (table["season"] < season)]
+        rows = season_rows(table, season)
+        probs.append(fit_predict(train, rows))
+        parts.append(rows)
+    return pd.concat(parts, ignore_index=True), np.vstack(probs)
 
 
-def fit(rows, features=MODEL_FEATURES, c=1.0):
+# --- Model --------------------------------------------------------------------------
+
+def make_model(c=1.0, l1_ratio=None):
+    """Fill missing values, standardize, then softmax logistic regression.
+
+    l1_ratio None is the L2 penalty. 1 is L1 (lasso), and between 0 and 1 is
+    elastic net, a mix of the two. C = 1/λ, so a smaller C is a stronger penalty.
+    """
+    if l1_ratio is None:
+        lr = LogisticRegression(C=c, max_iter=1000)
+    else:
+        lr = LogisticRegression(C=c, penalty="elasticnet", l1_ratio=l1_ratio,
+                                solver="saga", max_iter=20000)
+    return make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), lr)
+
+
+def fit(rows, features=MODEL_FEATURES, c=1.0, l1_ratio=None):
     """Train on `rows`. Fails if the optimizer stops before reaching the minimum."""
-    model = make_model(c)
+    model = make_model(c, l1_ratio)
     with warnings.catch_warnings():
         warnings.simplefilter("error", ConvergenceWarning)
         model.fit(rows[features], rows["result"])
@@ -86,6 +158,51 @@ def predict(model, rows, features=MODEL_FEATURES):
     order = [list(model.classes_).index(o) for o in OUTCOMES]
     return probs[:, order]
 
+
+def model_features(settings):
+    """The settings' features, plus the Championship flag when Championship rows train too."""
+    return list(settings["features"]) + (["championship"] if settings["championship_rows"] else [])
+
+
+def training_rows(train, settings):
+    return train if settings["championship_rows"] else train[train["league"] == "E0"]
+
+
+def model_predictor(settings):
+    """A fit_predict for walk_forward that trains the model with these settings."""
+    features = model_features(settings)
+
+    def fit_predict(train, rows):
+        model = fit(training_rows(train, settings), features, settings["c"], settings["l1_ratio"])
+        return predict(model, rows, features)
+    return fit_predict
+
+
+def elo_only_predictor(train, rows):
+    train = train[train["league"] == "E0"]
+    return predict(fit(train, ELO_ONLY), rows, ELO_ONLY)
+
+
+def base_rate_predictor(train, rows):
+    return base_rates(train[train["league"] == "E0"], len(rows))
+
+
+def bookmaker_predictor(train, rows):
+    return bookmaker_probs(rows)
+
+
+def train_final(table, settings):
+    """The production model: trained on every finished match from TRAIN_FROM."""
+    rows = table[(table["season"] >= TRAIN_FROM) & table["result"].notna()]
+    return fit(training_rows(rows, settings), model_features(settings),
+               settings["c"], settings["l1_ratio"])
+
+
+def load_settings(path=SETTINGS_PATH):
+    return json.loads(Path(path).read_text())
+
+
+# --- Baselines and scores -----------------------------------------------------------
 
 def base_rates(train, n):
     """The training seasons' home/draw/away shares, the same for every game."""
@@ -164,125 +281,148 @@ def calibration(results, probs, edges=np.linspace(0, 1, 11)):
     return pd.DataFrame(rows)
 
 
-def evaluate(table):
-    """Train the first model and the baselines, and score them on the validation seasons."""
-    train, validate = split(table)
-    model = fit(train)
-    elo_only = fit(train, ELO_ONLY)
+# --- Tuning (step 4) ----------------------------------------------------------------
 
-    probs = {
-        "model": predict(model, validate),
-        "elo_only": predict(elo_only, validate, ELO_ONLY),
-        "base_rates": base_rates(train, len(validate)),
-        "bookmakers": bookmaker_probs(validate),
-    }
-    scores = {name: match_scores(validate["result"], p) for name, p in probs.items()}
-    train_probs = predict(model, train)
-    train_scores = match_scores(train["result"], train_probs)
-    train_base = match_scores(train["result"], base_rates(train, len(train)))
-
-    comparisons = {}
-    for name, s in scores.items():
-        row = summarize(s)
-        if name != "model":
-            row["model_minus_this"] = paired(scores["model"]["log_loss"], s["log_loss"])
-        comparisons[name] = row
-    comparisons["always_home"] = {"accuracy": float((validate["result"] == "H").mean())}
-
-    return {
-        "model": model, "train": train, "validate": validate, "probs": probs,
-        "train_probs": train_probs, "comparisons": comparisons,
-        "train_log_loss": summarize(train_scores)["log_loss"],
-        "train_base_log_loss": summarize(train_base)["log_loss"],
-        "weights": weights(model), "intercepts": intercepts(model),
-        "calibration": calibration(validate["result"], probs["model"]),
-        "missing_filled": {"train": int(train[MODEL_FEATURES].isna().sum().sum()),
-                           "validate": int(validate[MODEL_FEATURES].isna().sum().sum())},
-    }
+def validation_losses(table, settings):
+    """Per-game log loss on the validation seasons, walk-forward."""
+    rows, probs = walk_forward(before_test(table), VALIDATE, model_predictor(settings))
+    return match_scores(rows["result"], probs)["log_loss"].to_numpy()
 
 
-def report(r):
-    train, validate = r["train"], r["validate"]
-    print(f"Training rows:   {len(train)} ({TRAIN[0]} to {TRAIN[1]})")
-    print(f"Validation rows: {len(validate)} ({VALIDATE[0]} to {VALIDATE[1]})")
-    print(f"Features: {len(MODEL_FEATURES)} (left out: {', '.join(LEFT_OUT)})")
-    print(f"Missing values filled: {r['missing_filled']['train']} in training, "
-          f"{r['missing_filled']['validate']} in validation\n")
+def one_se_choice(losses_by_c):
+    """The one-standard-error rule: the smallest C within one SE of the best C.
 
-    print("Step 2a. Does it beat doing nothing? (training seasons)")
-    print(f"  Model log loss {r['train_log_loss']:.4f}, "
-          f"average shares {r['train_base_log_loss']:.4f}\n")
-
-    print("Step 2b. Weights on standardized features (z for home / draw / away)")
-    print(f"  {'intercept':<20}" + "".join(f"{v:>+8.3f}" for v in r["intercepts"]))
-    w = r["weights"]
-    order = (w["H"] - w["A"]).abs().sort_values(ascending=False).index
-    for name in order:
-        print(f"  {name:<20}" + "".join(f"{v:>+8.3f}" for v in w.loc[name]))
-
-    p = r["probs"]["model"]
-    print("\nStep 2c. Do the predictions look sane? (validation seasons)")
-    print("  Average predicted: " + "  ".join(f"{o} {v:.1%}" for o, v in zip(OUTCOMES, p.mean(0))))
-    actual = validate["result"].value_counts(normalize=True).reindex(OUTCOMES)
-    print("  Actual shares:     " + "  ".join(f"{o} {v:.1%}" for o, v in actual.items()))
-    print(f"  Highest draw probability: {p[:, 1].max():.1%}. "
-          f"Games where a draw is the favourite: {(p.argmax(1) == 1).sum()}")
-
-    print(f"\nStep 3a. Validation scores ({len(validate)} games)")
-    print(f"  {'':<12}{'log loss':>9}{'accuracy':>10}{'Brier':>8}   model minus this (log loss)")
-    for name, row in r["comparisons"].items():
-        if "log_loss" not in row:
-            print(f"  {name:<12}{'-':>9}{row['accuracy']:>10.1%}{'-':>8}")
-            continue
-        diff = row.get("model_minus_this")
-        extra = f"   {diff[0]:+.4f} ± {diff[1]:.4f}" if diff else ""
-        print(f"  {name:<12}{row['log_loss']:>9.4f}{row['accuracy']:>10.1%}"
-              f"{row['brier']:>8.4f}{extra}")
-
-    gap = r["comparisons"]["model"]["log_loss"] - r["train_log_loss"]
-    print(f"\nStep 3b. Validation minus training log loss: {gap:+.4f}")
-
-    print("\nStep 3c. Calibration (validation): predicted vs happened")
-    for _, row in r["calibration"].iterrows():
-        if row["games"] >= 20:
-            print(f"  {row['outcome']} {row['low']:.0%}-{row['high']:.0%}: {row['games']:>4} games, "
-                  f"predicted {row['predicted']:.1%}, happened {row['actual']:.1%} "
-                  f"± {row['standard_error']:.1%}")
+    losses_by_c maps each C to its per-game losses on the same games. The
+    SE is that of the per-game difference from the best C, so the choice is
+    the strongest penalty that is not clearly worse than the best.
+    Returns (chosen C, best C).
+    """
+    best = min(losses_by_c, key=lambda c: np.mean(losses_by_c[c]))
+    for c in sorted(losses_by_c):
+        diff, se = paired(losses_by_c[c], losses_by_c[best])
+        if diff <= se:
+            return c, best
 
 
-def save(r, path=REPORT_PATH):
-    """Write the results, including every validation prediction, as JSON."""
-    v = r["validate"]
-    games = pd.DataFrame({
-        "season": v["season"], "date": v["date"].dt.strftime("%Y-%m-%d"),
-        "home_team": v["home_team"], "away_team": v["away_team"],
-        "home_goals": v["home_goals"].astype(int), "away_goals": v["away_goals"].astype(int),
-        "result": v["result"], "home_elo": v["home_elo"].round(1),
-        "away_elo": v["away_elo"].round(1),
-    })
-    for name in ("model", "elo_only", "bookmakers"):
-        games[name] = [[round(float(x), 4) for x in row] for row in r["probs"][name]]
-    out = {
-        "seasons": {"train": TRAIN, "validate": VALIDATE},
-        "features": MODEL_FEATURES, "left_out": LEFT_OUT,
-        "rows": {"train": len(r["train"]), "validate": len(v)},
-        "train_log_loss": r["train_log_loss"], "train_base_log_loss": r["train_base_log_loss"],
-        "comparisons": r["comparisons"],
-        "weights": r["weights"].round(4).to_dict(orient="index"),
-        # one standard deviation of each feature in the training rows: the step a weight is per
-        "feature_sd": dict(zip(MODEL_FEATURES, r["model"][1].scale_.round(4).tolist())),
-        "intercepts": r["intercepts"].round(4).to_dict(),
-        "calibration": r["calibration"].to_dict(orient="records"),
-        "games": games.to_dict(orient="records"),
-    }
-    path.write_text(json.dumps(out, indent=1))
+def clearly_better(new, old):
+    """True when `new` has lower loss than `old` by more than one standard error."""
+    diff, se = paired(new, old)
+    return diff < -se
+
+
+def tune(table, log=print):
+    """Step 4 on the validation seasons. Returns the settings and a record of every result.
+
+    Rules, written before the search:
+      - C: the one-SE rule over C_GRID.
+      - The default is the L2 model on MODEL_FEATURES, Premier League rows only.
+        A change (L1 or elastic net, Championship rows, dropping a feature
+        group) is kept only when it is better by more than one SE.
+    """
+    table = before_test(table)
+    record = {"rule": tune.__doc__.split("Rules, written before the search:")[1].strip()}
+
+    def sweep(settings, grid=C_GRID):
+        losses = {c: validation_losses(table, {**settings, "c": c}) for c in grid}
+        chosen, best = one_se_choice(losses)
+        log(f"  chosen C {chosen} (best {best}): {np.mean(losses[chosen]):.4f} "
+            f"(best {np.mean(losses[best]):.4f})")
+        grid_record = {str(c): round(float(np.mean(v)), 5) for c, v in losses.items()}
+        return {**settings, "c": chosen}, losses[chosen], {"chosen": chosen, "best": best,
+                                                           "grid": grid_record}
+
+    def compare(new, old):
+        diff, se = paired(new, old)
+        return {"log_loss": round(float(np.mean(new)), 5),
+                "minus_current": [round(diff, 5), round(se, 5)]}
+
+    log("1. C for the L2 model on every feature")
+    settings, current, record["l2"] = sweep(DEFAULT_SETTINGS)
+
+    log("2. L1 and elastic net")
+    coarse = C_GRID[::2]
+    for name, ratio in (("l1", 1.0), ("elastic_net", 0.5)):
+        candidate, losses, record[name] = sweep({**settings, "l1_ratio": ratio}, coarse)
+        record[name].update(compare(losses, current))
+        if clearly_better(losses, current):
+            settings, current = candidate, losses
+            record[name]["kept"] = True
+
+    log("3. Championship rows")
+    candidate, losses, record["championship_rows"] = sweep({**settings, "championship_rows": True})
+    record["championship_rows"].update(compare(losses, current))
+    if clearly_better(losses, current):
+        settings, current = candidate, losses
+        record["championship_rows"]["kept"] = True
+
+    log("4. Ablations: drop one feature group at a time")
+    record["ablations"] = {}
+    dropped = []
+    for name, group in GROUPS.items():
+        kept = [f for f in settings["features"] if f not in group]
+        losses = validation_losses(table, {**settings, "features": kept})
+        record["ablations"][name] = compare(losses, current)
+        diff, se = record["ablations"][name]["minus_current"]
+        log(f"  without {name:<30} {diff:+.4f} ± {se:.4f}")
+        if clearly_better(losses, current):
+            dropped.append(name)
+    if dropped:
+        features = [f for f in settings["features"]
+                    if not any(f in GROUPS[name] for name in dropped)]
+        log(f"  dropping {dropped}; C again")
+        settings, current, record["after_drops"] = sweep({**settings, "features": features})
+    record["dropped_groups"] = dropped
+
+    log("5. For reference: Elo features only, and the Elo-only baseline")
+    elo = {**settings, "features": [f for f in settings["features"] if f in ELO_FEATURES]}
+    record["elo_features_only"] = compare(validation_losses(table, elo), current)
+    rows, probs = walk_forward(table, VALIDATE, elo_only_predictor)
+    record["elo_only_baseline"] = compare(
+        match_scores(rows["result"], probs)["log_loss"].to_numpy(), current)
+    record["final_validation_log_loss"] = round(float(np.mean(current)), 5)
+    return settings, record
+
+
+def save_settings(settings, record, path=SETTINGS_PATH):
+    out = {**settings, "tuning": {"validation_seasons": f"{VALIDATE[0]} to {VALIDATE[-1]}",
+                                  "games": 380 * len(VALIDATE), "tuned_on": str(date.today()),
+                                  **record}}
+    Path(path).write_text(json.dumps(out, indent=2) + "\n")
     return path
 
 
+# --- Command line -------------------------------------------------------------------
+
+def show_weights(model, features):
+    w = weights(model, features)
+    print(f"  {'intercept':<22}" + "".join(f"{v:>+8.3f}" for v in intercepts(model)))
+    for name in (w["H"] - w["A"]).abs().sort_values(ascending=False).index:
+        print(f"  {name:<22}" + "".join(f"{v:>+8.3f}" for v in w.loc[name]))
+
+
 def main():
-    r = evaluate(load_table())
-    report(r)
-    print(f"\nSaved {save(r)}")
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--tune", action="store_true", help="run step 4 and save the settings")
+    args = parser.parse_args()
+    table = load_table()
+
+    if args.tune:
+        settings, record = tune(table)
+        print(f"\nSettings: C {settings['c']}, l1_ratio {settings['l1_ratio']}, "
+              f"Championship rows {settings['championship_rows']}, "
+              f"{len(settings['features'])} features")
+        print(f"Saved {save_settings(settings, record)}")
+        return
+
+    settings = load_settings()
+    features = model_features(settings)
+    model = train_final(table, settings)
+    rows = table[(table["season"] >= TRAIN_FROM) & table["result"].notna()]
+    rows = training_rows(rows, settings)
+    print(f"Trained on {len(rows)} matches, {rows['season'].min()} to {rows['season'].max()}. "
+          f"C {settings['c']}, {len(features)} features.")
+    print("Weights on standardized features (z for home / draw / away):")
+    show_weights(model, features)
 
 
 if __name__ == "__main__":

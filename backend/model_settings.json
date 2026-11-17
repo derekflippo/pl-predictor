@@ -1,0 +1,248 @@
+{
+  "features": [
+    "elo_diff",
+    "elo_sum",
+    "elo_expected",
+    "home_ppg_5",
+    "home_ppg_10",
+    "home_gf_5",
+    "home_gf_10",
+    "home_ga_5",
+    "home_ga_10",
+    "home_sotf_5",
+    "home_sotf_10",
+    "home_sota_5",
+    "home_sota_10",
+    "home_venue_ppg_5",
+    "home_rest_days",
+    "home_came_up",
+    "away_ppg_5",
+    "away_ppg_10",
+    "away_gf_5",
+    "away_gf_10",
+    "away_ga_5",
+    "away_ga_10",
+    "away_sotf_5",
+    "away_sotf_10",
+    "away_sota_5",
+    "away_sota_10",
+    "away_venue_ppg_5",
+    "away_rest_days",
+    "away_came_up"
+  ],
+  "c": 0.0316,
+  "l1_ratio": 0.5,
+  "championship_rows": false,
+  "tuning": {
+    "validation_seasons": "2015-16 to 2018-19",
+    "games": 1520,
+    "tuned_on": "2026-11-16",
+    "rule": "- C: the one-SE rule over C_GRID.\n      - The default is the L2 model on MODEL_FEATURES, Premier League rows only.\n        A change (L1 or elastic net, Championship rows, dropping a feature\n        group) is kept only when it is better by more than one SE.",
+    "l2": {
+      "chosen": 0.00316,
+      "best": 0.0178,
+      "grid": {
+        "0.0001": 0.99127,
+        "0.000178": 0.97985,
+        "0.000316": 0.97144,
+        "0.000562": 0.96576,
+        "0.001": 0.96226,
+        "0.00178": 0.96026,
+        "0.00316": 0.95915,
+        "0.00562": 0.95856,
+        "0.01": 0.95836,
+        "0.0178": 0.95831,
+        "0.0316": 0.95844,
+        "0.0562": 0.9586,
+        "0.1": 0.9587,
+        "0.178": 0.95878,
+        "0.316": 0.95887,
+        "0.562": 0.95885,
+        "1.0": 0.959
+      }
+    },
+    "l1": {
+      "chosen": 0.0316,
+      "best": 0.1,
+      "grid": {
+        "0.0001": 1.06395,
+        "0.000316": 1.06194,
+        "0.001": 1.05813,
+        "0.00316": 0.97541,
+        "0.01": 0.96199,
+        "0.0316": 0.95777,
+        "0.1": 0.95725,
+        "0.316": 0.95786,
+        "1.0": 0.95861
+      },
+      "log_loss": 0.95777,
+      "minus_current": [
+        -0.00137,
+        0.00155
+      ]
+    },
+    "elastic_net": {
+      "chosen": 0.0316,
+      "best": 0.0316,
+      "grid": {
+        "0.0001": 1.06372,
+        "0.000316": 1.06245,
+        "0.001": 1.0007,
+        "0.00316": 0.96686,
+        "0.01": 0.95894,
+        "0.0316": 0.95697,
+        "0.1": 0.95748,
+        "0.316": 0.95838,
+        "1.0": 0.95889
+      },
+      "log_loss": 0.95697,
+      "minus_current": [
+        -0.00217,
+        0.00103
+      ],
+      "kept": true
+    },
+    "championship_rows": {
+      "chosen": 0.0316,
+      "best": 0.316,
+      "grid": {
+        "0.0001": 1.06536,
+        "0.000178": 1.06349,
+        "0.000316": 1.05094,
+        "0.000562": 1.00131,
+        "0.001": 0.97886,
+        "0.00178": 0.96924,
+        "0.00316": 0.96376,
+        "0.00562": 0.96016,
+        "0.01": 0.95808,
+        "0.0178": 0.95707,
+        "0.0316": 0.95615,
+        "0.0562": 0.95611,
+        "0.1": 0.95602,
+        "0.178": 0.95585,
+        "0.316": 0.95579,
+        "0.562": 0.95584,
+        "1.0": 0.95596
+      },
+      "log_loss": 0.95615,
+      "minus_current": [
+        -0.00082,
+        0.00147
+      ]
+    },
+    "ablations": {
+      "Elo curve (elo_expected)": {
+        "log_loss": 0.95717,
+        "minus_current": [
+          0.00019,
+          0.00022
+        ]
+      },
+      "Elo level (elo_sum)": {
+        "log_loss": 0.95767,
+        "minus_current": [
+          0.0007,
+          0.00028
+        ]
+      },
+      "home advantage": {
+        "log_loss": 0.95684,
+        "minus_current": [
+          -0.00014,
+          7e-05
+        ]
+      },
+      "points (ppg)": {
+        "log_loss": 0.95717,
+        "minus_current": [
+          0.00019,
+          0.00011
+        ]
+      },
+      "goals (gf, ga)": {
+        "log_loss": 0.9564,
+        "minus_current": [
+          -0.00057,
+          0.00068
+        ]
+      },
+      "shots on target (sotf, sota)": {
+        "log_loss": 0.96062,
+        "minus_current": [
+          0.00365,
+          0.00158
+        ]
+      },
+      "vs Elo expectation (vs_exp)": {
+        "log_loss": 0.95641,
+        "minus_current": [
+          -0.00057,
+          0.0003
+        ]
+      },
+      "venue points (venue_ppg_5)": {
+        "log_loss": 0.95688,
+        "minus_current": [
+          -9e-05,
+          0.00024
+        ]
+      },
+      "rest days": {
+        "log_loss": 0.95684,
+        "minus_current": [
+          -0.00013,
+          0.00014
+        ]
+      },
+      "promoted (came_up)": {
+        "log_loss": 0.958,
+        "minus_current": [
+          0.00103,
+          0.00075
+        ]
+      }
+    },
+    "after_drops": {
+      "chosen": 0.0316,
+      "best": 0.0562,
+      "grid": {
+        "0.0001": 1.06184,
+        "0.000178": 1.0618,
+        "0.000316": 1.06358,
+        "0.000562": 1.05189,
+        "0.001": 1.0007,
+        "0.00178": 0.97673,
+        "0.00316": 0.96686,
+        "0.00562": 0.96197,
+        "0.01": 0.9589,
+        "0.0178": 0.95749,
+        "0.0316": 0.95629,
+        "0.0562": 0.95611,
+        "0.1": 0.95636,
+        "0.178": 0.95673,
+        "0.316": 0.95709,
+        "0.562": 0.9574,
+        "1.0": 0.95757
+      }
+    },
+    "dropped_groups": [
+      "home advantage",
+      "vs Elo expectation (vs_exp)"
+    ],
+    "elo_features_only": {
+      "log_loss": 0.96022,
+      "minus_current": [
+        0.00393,
+        0.00195
+      ]
+    },
+    "elo_only_baseline": {
+      "log_loss": 0.96031,
+      "minus_current": [
+        0.00402,
+        0.00217
+      ]
+    },
+    "final_validation_log_loss": 0.95629
+  }
+}
