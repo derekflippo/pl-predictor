@@ -30,6 +30,7 @@ python backend/fixtures.py        # fixtures matched to results, next matchweek
 python backend/elo.py --tune      # only when re-tuning; writes backend/elo_settings.json
 python backend/features.py        # builds backend/data/features.csv
 python backend/check_ratings.py   # rating checks 1, 2 and 4
+python backend/train.py           # first model, scored on validation seasons 2015-16 to 2018-19
 pytest                            # data-dependent tests skip without downloads
 ```
 

@@ -44,6 +44,19 @@ def _average(values):
     return sum(values) / len(values) if values else np.nan
 
 
+def _in_league(entry, league):
+    """The games in a (league, games) window, or none if it belongs to another league."""
+    return list(entry[1]) if entry is not None and entry[0] == league else []
+
+
+def _league_window(store, key, league, size):
+    """The window to add a game to: a new, empty one when the team has changed league."""
+    entry = store.get(key)
+    if entry is None or entry[0] != league:
+        entry = store[key] = (league, deque(maxlen=size))
+    return entry[1]
+
+
 class MatchState:
     """Everything known about the teams at one moment: ratings and recent games.
 
@@ -54,11 +67,16 @@ class MatchState:
     def __init__(self, elo, teams):
         self.elo = elo
         self.teams = teams  # {season: {league: set of teams}}
-        # team -> its last games, in either league. Each game is
+        # team -> actual score minus Elo's expected score in its last games,
+        # in either league. Opponent-adjusted, so it carries across leagues.
+        self.vs_exp = {}
+        # team -> (league, its last games in that league). Each game is
         # (points, goals for, goals against, shots on target for,
-        #  shots on target against, actual score minus Elo's expected score)
-        self.recent = {}
-        self.venue = {}      # (team, "home" or "away") -> points in recent games there
+        #  shots on target against). Raw numbers only compare within one
+        # league, so the window starts empty when a team changes league.
+        self.form = {}
+        # (team, "home" or "away") -> (league, points in its recent games there)
+        self.venue = {}
         self.last_date = {}  # team -> date of its last league game
 
     def start_season(self, season):
@@ -71,15 +89,18 @@ class MatchState:
         row = {"home_advantage": h, "elo_expected": expected}
         changes = self.elo.changes.get((league, self.elo.season))
         for side, team, rating in (("home", home, r_home), ("away", away, r_away)):
-            games = list(self.recent.get(team, ()))
+            games = _in_league(self.form.get(team), league)
+            vs_exp = list(self.vs_exp.get(team, ()))
             values = {"elo": rating}
             for n in WINDOWS:
                 window = games[-n:]
-                columns = list(zip(*window)) if window else [()] * 6
+                columns = list(zip(*window)) if window else [()] * 5
                 values[f"games_{n}"] = len(window)
-                for name, column in zip(("ppg", "gf", "ga", "sotf", "sota", "vs_exp"), columns):
+                for name, column in zip(("ppg", "gf", "ga", "sotf", "sota"), columns):
                     values[f"{name}_{n}"] = _average(column)
-            values[f"venue_ppg_{VENUE_WINDOW}"] = _average(self.venue.get((team, side), ()))
+                values[f"vs_exp_{n}"] = _average(vs_exp[-n:])
+            values[f"venue_ppg_{VENUE_WINDOW}"] = _average(
+                _in_league(self.venue.get((team, side)), league))
             last = self.last_date.get(team)
             values["rest_days"] = (np.nan if last is None
                                    else min((date - last).days, REST_CAP))
@@ -101,9 +122,10 @@ class MatchState:
             (match.away_team, "away", points[1], ag, hg, sot_a, sot_h, expected - score),
         )
         for team, side, pts, gf, ga, sotf, sota, vs_exp in sides:
-            self.recent.setdefault(team, deque(maxlen=max(WINDOWS))).append(
-                (pts, gf, ga, sotf, sota, vs_exp))
-            self.venue.setdefault((team, side), deque(maxlen=VENUE_WINDOW)).append(pts)
+            self.vs_exp.setdefault(team, deque(maxlen=max(WINDOWS))).append(vs_exp)
+            _league_window(self.form, team, match.league, max(WINDOWS)).append(
+                (pts, gf, ga, sotf, sota))
+            _league_window(self.venue, (team, side), match.league, VENUE_WINDOW).append(pts)
             self.last_date[team] = match.date
         self.elo.update(match.league, match.home_team, match.away_team, hg, ag, expected)
 
