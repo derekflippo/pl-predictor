@@ -84,10 +84,15 @@ def test_clearly_better_needs_more_than_one_standard_error():
     assert clearly_better(old, old) is False
 
 
-def test_elastic_net_uses_saga():
-    lr = make_model(c=0.1, l1_ratio=0.5)[-1]
-    assert lr.penalty == "elasticnet" and lr.solver == "saga" and lr.l1_ratio == 0.5
-    assert make_model(c=0.1)[-1].penalty == "l2"
+def test_elastic_net_sets_weak_weights_to_zero_and_l2_does_not():
+    """Checks the penalty by what it does, so it holds on every scikit-learn version."""
+    rows = toy_rows(n=400)
+    rows["noise"] = np.random.default_rng(1).normal(size=len(rows))
+    elastic = fit(rows, ["x", "noise"], c=0.02, l1_ratio=0.5)[-1]
+    l2 = fit(rows, ["x", "noise"], c=0.02)[-1]
+    assert elastic.solver == "saga"
+    assert (elastic.coef_[:, 1] == 0).all() and (elastic.coef_[:, 0] != 0).any()
+    assert (l2.coef_ != 0).all()
 
 
 def test_bookmaker_probabilities_remove_the_margin():

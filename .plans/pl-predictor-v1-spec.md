@@ -266,8 +266,16 @@ website v1, v1.1, gradient boosting and the Poisson model).
   default rating. Milestone 2 found the gain within noise.
 - **Missing games:** cup and European matches aren't in the data, so rest
   days and fatigue are only partly known.
-- **Data terms:** check football-data.co.uk's terms of use before
-  milestone 5. The repo stores none of their files; users download them.
+- **Data terms (checked 2026-11-16):** football-data.co.uk's data page
+  says the data is free, intended for private individuals only, and not
+  for commercial or "data training products using automated
+  bots/scrapers/AI". The disclaimer page covers betting liability only.
+  This project is a private individual's non-commercial portfolio
+  project, and the repo stores none of their files: each user's
+  `download_data.py` fetches them, past seasons only once. The AI clause
+  is aimed at products, but an automated download that trains a model is
+  close to it. Asking the site owner would settle it. Nothing here is
+  legal advice.
 
 ## Out of scope for v1
 

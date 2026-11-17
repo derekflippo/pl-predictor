@@ -43,6 +43,10 @@ pytest                            # data-dependent tests skip without downloads
 ```
 
 - `backend/data/` is gitignored. Rebuild it with the commands above.
+- CI (`.github/workflows/ci.yml`) runs pytest on Python 3.10 and 3.12 for
+  every pull request. The data tests skip there.
+- `train.make_model` supports scikit-learn before and after 1.8, which
+  deprecated `penalty`. Both give the same model.
 - Python is the user's Anaconda install, which already has pandas,
   scikit-learn and pytest.
 

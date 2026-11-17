@@ -27,6 +27,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -78,6 +79,9 @@ C_GRID = [float(f"{10 ** e:.3g}") for e in np.arange(-4, 0.01, 0.25)]  # 0.0001 
 ODDS = ["odds_home", "odds_draw", "odds_away"]
 KEY = ["league", "season", "home_team", "away_team"]
 SETTINGS_PATH = Path(__file__).resolve().parent / "model_settings.json"
+# scikit-learn 1.8 deprecated LogisticRegression's `penalty`: l1_ratio alone
+# picks the mix (0 is L2, 1 is L1). Older versions need penalty="elasticnet".
+NEW_PENALTY_API = tuple(int(x) for x in sklearn.__version__.split(".")[:2]) >= (1, 8)
 DEFAULT_SETTINGS = {"features": MODEL_FEATURES, "c": 1.0, "l1_ratio": None,
                     "championship_rows": False}
 
@@ -137,6 +141,8 @@ def make_model(c=1.0, l1_ratio=None):
     """
     if l1_ratio is None:
         lr = LogisticRegression(C=c, max_iter=1000)
+    elif NEW_PENALTY_API:
+        lr = LogisticRegression(C=c, l1_ratio=l1_ratio, solver="saga", max_iter=20000)
     else:
         lr = LogisticRegression(C=c, penalty="elasticnet", l1_ratio=l1_ratio,
                                 solver="saga", max_iter=20000)
