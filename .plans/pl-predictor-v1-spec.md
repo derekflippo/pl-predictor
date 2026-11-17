@@ -2,14 +2,21 @@
 
 Written 2026-11-14, from the planning interview.
 
+**Scope changed on 2026-11-16 (the user's decision).** There is no website,
+no daily GitHub Action, no locked predictions or track record, and no
+gradient boosting or Poisson model. The project ends with a local
+`predict.py` that anyone can run after cloning the repo, and then the code
+is published. Parts below that describe dropped work are marked
+*Dropped*, and the rest of their text is removed. Git history has the
+original.
+
 ## Summary
 
 A portfolio project that predicts Premier League results (home win, draw,
 away win) with a machine learning model trained on football data only.
 Betting odds are not an input. They are the benchmark the model is measured
-against. A static website shows upcoming fixtures with the model's
-probabilities and a public track record of predictions that were locked
-before kickoff.
+against. Anyone can clone the repo, download the data, retrain the model
+and predict upcoming games on their own computer.
 
 ## Decisions
 
@@ -18,60 +25,44 @@ before kickoff.
 | Purpose | Portfolio and learning: clean code, a model you can explain, honest evaluation |
 | Betting odds | Not a model input; used as the benchmark |
 | Promoted teams | Also download Championship results so promoted teams get a real rating |
-| Model | Classifier first (multinomial logistic regression); Poisson goals model later as a comparison |
+| Model | Multinomial logistic regression. No gradient boosting or Poisson model (dropped 2026-11-16) |
 | Main metric | Log loss, with accuracy reported next to it |
-| Draws in the UI | Show all three probabilities and highlight the favorite; label "Close call" when the top two are within 5 points |
-| Match card (v1) | Probability bar plus recent form strip |
-| Match card (v1.1) | Key factors, head-to-head |
-| Bookmaker comparison | On the Track record page only, not on match cards |
-| Track record | Lock predictions before kickoff and score them after; earlier games this season shown separately as a labeled backtest |
-| Team picker | Yes, in v1.1: all 380 home/away pairs precomputed |
-| Architecture | Python precomputes JSON; static React site reads it; no live API server |
-| Updates | GitHub Action runs daily: download, retrain, lock, publish |
-| Frontend | React + Vite + Tailwind |
-| Hosting | GitHub Pages (`derekflippo.github.io/pl-predictor`) |
-| Look | Clean, light and dark mode, club-color stripe per team, no crests (trademarks) |
+| Draws in the output | Show all three probabilities and name the favorite; say "Close call" when the top two are within 5 points |
+| Bookmaker comparison | In the evaluation only (README, notebook) |
+| Track record | *Dropped 2026-11-16.* The walk-forward test on 2019-20 to 2025-26 is the evidence |
+| Any match | `predict.py --home X --away Y` predicts any pairing of this season's teams |
+| Architecture | Python scripts run on your own computer; no server and no website |
+| Updates | Run by hand: download the latest results, then predict. The model retrains on every run |
+| Publishing | The public GitHub repo: code, README results and the evaluation notebook |
 | Tests | pytest + CI check on every pull request |
 | Notebooks | Pipeline in plain scripts; one evaluation notebook for presentation |
 | Git | One branch and pull request per milestone |
-| v1 scope | Model, upcoming fixtures page, track record. Locking starts as early as possible |
+| v1 scope | Data, features, model, evaluation, and a local `predict.py` |
 
-The original roadmap step "FastAPI endpoint" is dropped. Precomputed JSON
-covers every view in this spec, including the team picker.
+The original roadmap step "FastAPI endpoint" is dropped. So, since
+2026-11-16, are the website, the daily Action, locking and the later models.
 
 ## Current state
 
-- `backend/download_data.py` downloads Premier League CSVs (football-data
-  code `E0`) for 2000-01 to the current season.
-- `backend/load_data.py` combines them into `backend/data/matches.csv`:
-  9,980 matches, 2000-08-19 to 2026-11-08, no missing odds or shot stats.
-- These files are on branch `setup/data-pipeline`, staged but **not yet
-  committed**: commit signing needs the SSH key loaded
-  (`ssh-add --apple-use-keychain ~/.ssh/id_ed25519`).
+Milestones 0 to 3 are built; see the README and the milestone specs. This
+section described the state on 2026-11-14 and is no longer kept up to date.
 
 ## Architecture
 
 ```
-GitHub Action (daily, 06:00 UTC)
+On your own computer
   1. download_data.py   Premier League + Championship results (football-data),
                         this season's fixtures (openfootball)
-  2. features.py        one feature row per match, from earlier matches only
-  3. train.py           fit the model on all finished matches
-  4. predict.py         write JSON for the site; append newly locked
-                        predictions to backend/predictions/locked.jsonl
-  5. commit locked.jsonl and the JSON, then build and deploy the site
-
-React site (static, GitHub Pages)
-  reads frontend/public/data/*.json; no server
+  2. load_data.py       backend/data/matches.csv
+  3. predict.py         builds features from earlier matches only, trains the
+                        model on every finished match with the frozen
+                        settings, and prints probabilities for upcoming games
 ```
 
-- Raw downloads stay out of git. The Action caches `backend/data/raw/` with
-  `actions/cache`, so past seasons are not downloaded again every day.
-- `backend/predictions/locked.jsonl` is committed. It is the permanent
-  record and must never be rewritten.
-- The Action commits as the GitHub Actions bot, so the local SSH signing
-  setup does not affect it. Its data commits go straight to `main`. Code
-  changes still go through branches and pull requests.
+- Raw downloads and everything in `backend/data/` stay out of git. Anyone
+  who clones the repo rebuilds them with the commands above.
+- `train.py --tune` and `evaluate.py` are for re-tuning and the evaluation.
+  Predicting doesn't need them.
 
 ## Data
 
@@ -152,9 +143,8 @@ with regularization strength tuned by walk-forward validation.
 
 ### Later
 
-Gradient boosting (XGBoost or LightGBM), then a Poisson goals model that
-also gives likely scorelines. Each is compared against Model 1 with the
-same evaluation.
+*Dropped 2026-11-16:* no gradient boosting and no Poisson goals model.
+Logistic regression is the final model.
 
 ### Evaluation
 
@@ -171,104 +161,66 @@ same evaluation.
 
 ### Production model
 
-Retrained daily on all finished matches. Training on about 10,000 rows
-takes seconds. Each locked prediction records the commit SHA of the code
-that made it.
+Retrained on all finished matches each time `predict.py` runs, with the
+settings frozen in `backend/model_settings.json`. Training takes seconds.
+The settings are not re-tuned unless someone runs `train.py --tune` on
+purpose.
 
-## Predictions and locking
+## Predictions
 
-`predict.py` writes:
+`backend/predict.py` (milestone 4):
 
-| File | Contents |
+| Command | Predicts |
 |---|---|
-| `fixtures.json` | Upcoming games in the next 14 days, grouped by matchweek: teams, kickoff time, three probabilities, favorite or "Close call", each team's last 5 results |
-| `record.json` | Every scored locked prediction, plus summary numbers for the model and the bookmakers, and the backtest section |
-| `pairs.json` (v1.1) | Probabilities for all 380 home/away pairs of this season's teams |
-| `meta.json` | Last update time, data range, model version |
+| `python backend/predict.py` | The next matchweek: the earliest matchweek with unplayed games from today on |
+| `python backend/predict.py --matchweek 14` | The unplayed games of that matchweek |
+| `python backend/predict.py --home Arsenal --away Chelsea` | Any pairing of this season's teams, as if played today (`--date` to change) |
 
-### Locking rules
-
-- Each daily run locks every fixture that kicks off within the next 48
-  hours and isn't locked yet.
-- A game therefore gets locked 24–48 hours before kickoff. If one
-  scheduled run is delayed or skipped, the next run still locks it in
-  time.
-- A locked line contains: season, matchweek, date, kickoff, home, away,
-  p_home, p_draw, p_away, model_version, locked_at.
-- `locked.jsonl` is append-only. Existing lines are never changed. A test
-  enforces this.
-- When a result arrives in football-data, the prediction is scored. The
-  bookmaker comparison uses the pre-match odds from that same results
-  row, the same odds the backtest uses.
-- A postponed game keeps its original lock and is scored whenever it's
-  played.
-
-### Backtest for this season
-
-Games this season played before locking starts get a backtest. For each
-matchweek, the model is trained on data from before that matchweek and
-predicts its games. The site shows these in a separate section labeled
-"Backtest" and never mixes them into the locked record.
+- Each line shows the date, kickoff, teams, the three probabilities, and
+  the favorite, or "Close call" when the top two are within 5 points.
+- Team names are football-data's, as in `matches.csv` (`Man United`,
+  `Nott'm Forest`). An unknown name stops with an error that lists this
+  season's teams.
+- Features are built in memory from `matches.csv` on every run, with the
+  same code as the training rows (`features_for`), so they can't go stale.
+- A game weeks away gets today's ratings and form. Results in between
+  aren't simulated.
+- Before a season's first result is in, `predict.py` stops with a message.
+  Promoted and relegated teams' ratings are converted at the first game of
+  the season, so earlier predictions would use the wrong scale.
+- *Dropped 2026-11-16:* JSON for a site, `locked.jsonl`, locking rules and
+  the in-season backtest.
 
 ## Website
 
-### Pages (v1)
+*Dropped 2026-11-16.* The README and the evaluation notebook show the
+results, and the code is the product.
 
-1. **Upcoming** (home page): games grouped by matchweek. Each card shows:
-   - both teams with a club-color stripe
-   - kickoff in the viewer's local time
-   - a three-part probability bar, with the favorite highlighted, or a
-     "Close call" label
-   - each team's last 5 results as W/D/L badges
-2. **Track record**:
-   - summary tiles: games scored, accuracy and log loss for the model and
-     the bookmakers
-   - a table of locked predictions with results
-   - the backtest section, below and clearly labeled
-3. **How it works**: the model in plain words, the features, data sources
-   with credit to football-data.co.uk and openfootball, and a "not betting
-   advice" note.
-
-### v1.1
-
-- **Team picker**: choose a home team and an away team and see the
-  prediction, read from `pairs.json`.
-- **Key factors** on each card, for example "Arsenal: 13 pts from last 5,
-  rating 1820 vs 1610", from the largest feature contributions in the
-  logistic regression.
-- **Head-to-head**: recent results between the two teams.
-
-### Design
-
-- Tailwind, mobile first.
-- Light and dark mode.
-- Neutral colors, with one primary color per club in
-  `frontend/src/data/clubs.json`.
-- No crests or official logos.
-- Vite base path `/pl-predictor/` for GitHub Pages.
-
-## Repo layout (target)
+## Repo layout
 
 ```
 backend/
-  download_data.py      done; add E1 + fixtures
-  load_data.py          done; add league column
+  download_data.py
+  load_data.py
+  fixtures.py
   team_names.csv
   elo.py
   features.py
+  check_ratings.py
   train.py
   evaluate.py
   predict.py
-  predictions/locked.jsonl
+  model_settings.json   frozen model settings (milestone 3)
+  elo_settings.json
   tests/
   requirements.txt      pandas, scikit-learn
   requirements-dev.txt  pytest, jupyter, matplotlib
 notebooks/
   evaluation.ipynb
-frontend/               Vite + React + Tailwind
+docs/
+  methodology.html      source of the private explainer page
 .github/workflows/
-  ci.yml                pytest + frontend build on every PR
-  daily.yml             daily pipeline, commit, deploy
+  ci.yml                pytest on every pull request (milestone 5)
 .plans/
 ```
 
@@ -278,17 +230,16 @@ frontend/               Vite + React + Tailwind
   features of every earlier match stay the same.
 - **Team names:** every team in this season's openfootball file maps to a
   football-data name.
-- **Locking:** running `predict.py` twice never changes existing lines in
-  `locked.jsonl`, and it never locks a game that has already kicked off.
+- **Predict:** probabilities are valid, unplayed games only, and unknown
+  team names are rejected.
 - **Probabilities:** each prediction's three probabilities are between 0
   and 1 and add up to 1.
 - **Loader:** the 2003-04 and 2004-05 files load with 380 matches each.
-- **CI:** `ci.yml` runs pytest and `npm run build` on every pull request.
+- **CI:** `ci.yml` runs pytest on every pull request.
 
 ## Milestones
 
-Each milestone is one branch and one pull request. Locking starts before
-the website exists, so the track record grows from as early as possible.
+Each milestone is one branch and one pull request.
 
 | # | Branch | Delivers |
 |---|---|---|
@@ -296,41 +247,30 @@ the website exists, so the track record grows from as early as possible.
 | 1 | `feature/championship-fixtures` | Championship data, openfootball fixtures, team name map, tests |
 | 2 | `feature/features-elo` | Elo with promotion handling, feature table, leakage test |
 | 3 | `feature/model-v1` | Baselines, logistic regression, walk-forward evaluation, notebook, README results |
-| 4 | `feature/predict-lock` | `predict.py`, JSON outputs, `locked.jsonl`, backtest |
-| 5 | `feature/daily-action` | `ci.yml` and `daily.yml` (locking only, no deploy yet). **The track record starts here** |
-| 6 | `feature/frontend-v1` | Upcoming, Track record and How it works pages; deploy to GitHub Pages. **v1 shipped** |
-| 7 | `feature/v1.1` | Team picker, key factors, head-to-head |
-| 8 | later | Gradient boosting, Poisson goals model, model comparison page |
+| 4 | `feature/predict` | `predict.py`: retrain and predict the next matchweek or any named game, locally |
+| 5 | `release/publish` | A README quick start that works from a fresh clone, `ci.yml` running pytest, data terms checked |
+
+*Dropped 2026-11-16:* the old milestones 5 to 8 (daily Action and locking,
+website v1, v1.1, gradient boosting and the Poisson model).
 
 ## Risks and open questions
 
-- **Fixture dates:** openfootball may be slow to update postponed games.
-  Matching on team pairs avoids wrong scores. A postponed game may be
-  locked days before it is actually played.
-  - *Seen in milestone 1:* openfootball lists upcoming matchweeks on the
-    Saturday at 15:00 (and some midweek games at 20:00) until TV picks
-    are made. Of the 10 matchweek-10 games, 6 were played on Friday or
-    Sunday but were still listed on the Saturday. Milestone 4 should therefore lock a whole
-    matchweek by the morning before its listed Saturday, not rely on
-    exact kickoff times.
+- **Fixture dates:** openfootball lists upcoming matchweeks on the Saturday
+  at 15:00 (and some midweek games at 20:00) until TV picks are made, and
+  may be slow to update postponed games. `predict.py` shows the listed
+  date, so a time can be a placeholder. Matching on team pairs avoids
+  attaching the wrong result.
   - *To check:* football-data.co.uk may publish an upcoming-fixtures file
     that could cross-check dates.
-- **Scheduled Action reliability:** GitHub can delay or skip scheduled
-  runs. The 48-hour lock window covers one missed run.
-- **Scheduled workflows get disabled:** GitHub disables them in public
-  repos after 60 days without repository activity.
-  - *To check:* whether the daily bot commits count as activity.
 - **Ratings across leagues:** the promotion mapping may not beat a flat
-  default rating. The evaluation decides which one stays.
+  default rating. Milestone 2 found the gain within noise.
 - **Missing games:** cup and European matches aren't in the data, so rest
   days and fatigue are only partly known.
-- **Commit signing:** local commits need the SSH key in the agent. If
-  branch protection on `main` later requires signed commits, the bot's
-  data commits need an exception.
-- **Data terms:** football-data.co.uk is free to use with credit. The repo
-  stores only our own predictions, never their files.
+- **Data terms:** check football-data.co.uk's terms of use before
+  milestone 5. The repo stores none of their files; users download them.
 
 ## Out of scope for v1
 
 Injuries and lineups, live in-game updates, user accounts, other leagues,
-club crests, and anything aimed at betting.
+club crests, anything aimed at betting, and (since 2026-11-16) a website,
+a daily update, locked predictions, gradient boosting and a Poisson model.

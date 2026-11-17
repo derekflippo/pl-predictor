@@ -1,25 +1,34 @@
 # pl-predictor
 
 Predicts Premier League match outcomes (home win, draw, away win) with a
-machine learning model, and shows the predictions for upcoming games on a
-web page.
+machine learning model. Clone the repo, download the data, and the model
+retrains and predicts upcoming games on your own computer.
 
 The model uses football data only (results, form, team ratings). Betting
 odds are not an input; they are the benchmark the model is measured
-against. Predictions are locked before kickoff and scored afterwards, so
-the site's track record is a real one.
+against.
+
+## Quick start
+
+```bash
+git clone https://github.com/derekflippo/pl-predictor.git
+cd pl-predictor
+pip install -r backend/requirements.txt
+python backend/download_data.py   # 55 files from football-data.co.uk and openfootball
+python backend/load_data.py
+python backend/predict.py         # trains the model, then predicts the next matchweek
+```
 
 ## Project layout
 
 ```
 backend/     Python: data download, features, model training, predictions
-frontend/    React + Vite + Tailwind static site (coming in milestone 6)
+notebooks/   The evaluation notebook: charts of the results
 .plans/      Design specs
-docs/        Methodology explainer (source of a private page; reused in milestone 6)
+docs/        Methodology explainer (source of a private page)
 ```
 
-The site is static: a daily GitHub Action retrains the model and writes the
-predictions as JSON files, and the page reads them. There is no server.
+Everything runs locally with Python. There is no server and no website.
 See [.plans/pl-predictor-v1-spec.md](.plans/pl-predictor-v1-spec.md) for
 the full design.
 
@@ -119,6 +128,34 @@ Log loss on the test seasons (lower is better; 2,660 games):
   the time. The charts are in
   [notebooks/evaluation.ipynb](notebooks/evaluation.ipynb).
 
+## Predict upcoming games
+
+```bash
+python backend/predict.py                                 # the next matchweek
+python backend/predict.py --matchweek 14                  # one matchweek's unplayed games
+python backend/predict.py --home Arsenal --away Chelsea   # any pairing, as if played today
+```
+
+Each run builds the features from `backend/data/matches.csv`, trains the
+model on every finished match with the frozen settings (about 10 seconds),
+and prints the three probabilities with the favourite, or "Close call"
+when the top two are within 5 points:
+
+```
+Matchweek 11, 2026-27
+  Sat 21 Nov 15:00          Chelsea v Leeds            home 52%  draw 27%  away 21%   Chelsea
+  Sat 21 Nov 15:00        Newcastle v Arsenal          home 20%  draw 22%  away 58%   Arsenal
+  Sat 21 Nov 15:00         Coventry v Crystal Palace   home 39%  draw 26%  away 35%   Close call
+```
+
+- Run `download_data.py` and `load_data.py` again after each matchweek, so
+  ratings and form include the latest results.
+- Team names are football-data's: `Man United`, `Nott'm Forest`. A wrong
+  name stops with a list of this season's teams.
+- A game weeks away gets today's ratings and form.
+- Kickoff times are UK time. openfootball lists Saturday 15:00 until TV
+  picks are made, so a listed time can be a placeholder.
+
 ## Tests
 
 ```bash
@@ -139,20 +176,20 @@ Some tests check the downloaded data and are skipped if you haven't run
    feature uses data from after the match
 3. [x] **Model**: logistic regression, evaluated season by season against
    Elo only, average shares, "always pick home" and the bookmakers
-4. [ ] **Predictions**: JSON for the site, and an append-only file of
-   predictions locked before kickoff
-5. [ ] **Daily GitHub Action**: retrain and lock predictions every day;
-   the track record starts here
-6. [ ] **Website (v1)**: upcoming games, track record, how it works;
-   hosted on GitHub Pages
-7. [ ] **v1.1**: team picker, key factors, head-to-head
-8. [ ] **Later**: gradient boosting, a Poisson goals model
+4. [x] **Predict**: retrain and predict the next matchweek or any game
+   you name, on your own computer
+5. [ ] **Publish**: a quick start that works from a fresh clone, tests on
+   every pull request, data terms checked
+
+Dropped on 2026-11-16: the website, the daily update and locked track
+record, gradient boosting and a Poisson goals model. Logistic regression
+is the final model.
 
 ## Data sources
 
 - Results, match stats and odds:
   [football-data.co.uk](https://www.football-data.co.uk/)
-- Upcoming fixtures (planned):
+- Upcoming fixtures:
   [openfootball](https://github.com/openfootball/football.json) (public domain)
 
 Not betting advice.
