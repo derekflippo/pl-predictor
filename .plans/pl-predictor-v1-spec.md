@@ -194,6 +194,9 @@ purpose.
 - Before a season's first result is in, `predict.py` stops with a message.
   Promoted and relegated teams' ratings are converted at the first game of
   the season, so earlier predictions would use the wrong scale.
+- `backend/app.py` (added 2026-11-17, the user's request): the same
+  predictions as a local Streamlit page, with an "Update data" button. It
+  runs on your own computer only; it isn't the dropped website.
 - *Dropped 2026-11-16:* JSON for a site, `locked.jsonl`, locking rules and
   the in-season backtest.
 
@@ -217,6 +220,7 @@ backend/
   evaluate.py
   metrics.py
   predict.py
+  app.py                local Streamlit page (requirements-app.txt)
   model_settings.json   frozen model settings (milestone 3)
   elo_settings.json
   tests/

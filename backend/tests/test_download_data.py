@@ -72,3 +72,17 @@ def test_fixtures_must_be_a_list_of_matches(monkeypatch, tmp_path):
     with pytest.raises(download_data.BadDownload):
         download_data.download_fixtures(2027)
     assert not (tmp_path / "fixtures_2027-28.json").exists()
+
+
+def test_download_all_reports_what_failed(monkeypatch, tmp_path):
+    import download_data
+    csv = b"Div,Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR\nE0,01/08/25,A,B,1,0,H\n"
+    fake_server(monkeypatch, csv)  # a results CSV for every URL, so the fixtures check fails
+    monkeypatch.setattr(download_data, "RAW_DIR", tmp_path)
+    monkeypatch.setattr(download_data, "current_season_start", lambda: 2025)
+    lines = []
+    failed = download_data.download_all(first=2024, log=lines.append)
+    assert sorted(p.name for p in tmp_path.glob("*.csv")) == [
+        "E0_2425.csv", "E0_2526.csv", "E1_2425.csv", "E1_2526.csv"]
+    assert len(failed) == 1 and failed[0].startswith("Fixtures 2025-26")
+    assert "Premier League: 2 downloaded, 0 already here" in lines

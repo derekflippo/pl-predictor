@@ -102,6 +102,36 @@ def download_fixtures(start_year):
           check_fixtures)
 
 
+def download_all(first=FIRST_SEASON, refresh=False, log=print):
+    """Every season of both leagues from `first`, and this season's fixtures.
+
+    Past seasons are downloaded once; the current season always again, and
+    every season again with refresh=True. Returns a list of what failed.
+    """
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    current = current_season_start()
+    failed = []
+
+    for league, name in LEAGUES.items():
+        counts = {"downloaded": 0, "cached": 0}
+        for year in range(first, current + 1):
+            try:
+                status = download_results(league, year, refresh=refresh or year == current)
+                counts[status] += 1
+            except (urllib.error.URLError, BadDownload) as error:
+                failed.append(f"{name} {season_name(year)}: {error}")
+                log(f"{name} {season_name(year)}: FAILED ({error})")
+        log(f"{name}: {counts['downloaded']} downloaded, {counts['cached']} already here")
+
+    try:
+        download_fixtures(current)
+        log(f"Fixtures {season_name(current)}: downloaded")
+    except (urllib.error.URLError, BadDownload) as error:
+        failed.append(f"Fixtures {season_name(current)}: {error}")
+        log(f"Fixtures {season_name(current)}: FAILED ({error})")
+    return failed
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--from", dest="first", type=int, default=FIRST_SEASON,
@@ -109,31 +139,7 @@ def main():
     parser.add_argument("--refresh", action="store_true",
                         help="download every season again, not just the current one")
     args = parser.parse_args()
-
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
-    current = current_season_start()
-    failed = False
-
-    for league, name in LEAGUES.items():
-        counts = {"downloaded": 0, "cached": 0}
-        for year in range(args.first, current + 1):
-            try:
-                status = download_results(league, year,
-                                          refresh=args.refresh or year == current)
-                counts[status] += 1
-            except (urllib.error.URLError, BadDownload) as error:
-                print(f"{name} {season_name(year)}: FAILED ({error})")
-                failed = True
-        print(f"{name}: {counts['downloaded']} downloaded, {counts['cached']} already here")
-
-    try:
-        download_fixtures(current)
-        print(f"Fixtures {season_name(current)}: downloaded")
-    except (urllib.error.URLError, BadDownload) as error:
-        print(f"Fixtures {season_name(current)}: FAILED ({error})")
-        failed = True
-
-    if failed:
+    if download_all(args.first, args.refresh):
         raise SystemExit(1)
 
 

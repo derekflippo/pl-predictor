@@ -21,6 +21,7 @@ python backend/train.py --tune    # only when re-tuning; writes backend/model_se
 python backend/train.py           # trains on every finished match, prints the weights
 python backend/evaluate.py        # the test, 2019-20 to 2025-26; --validation for 2015-16 to 2018-19
 python backend/predict.py         # retrains, predicts the next matchweek; --matchweek N; --home X --away Y
+streamlit run backend/app.py      # the same as a local web page (pip install -r backend/requirements-app.txt)
 pytest                            # data-dependent tests skip without downloads
 ```
 
@@ -31,6 +32,9 @@ pytest                            # data-dependent tests skip without downloads
   deprecated `penalty`. Both give the same model. Elastic net uses the
   saga solver with a fixed seed (`train.SEED`), so every run gives exactly
   the same model.
+- `app.py` only calls `predict.py`'s functions and `download_data.download_all`;
+  keep the logic in those modules so the CLI and the page always agree.
+  Its tests use Streamlit's AppTest and skip without streamlit or data.
 - Scores and the no-model baselines (log loss, Brier, paired SE,
   calibration, average shares, bookmakers) live in `backend/metrics.py`.
 
