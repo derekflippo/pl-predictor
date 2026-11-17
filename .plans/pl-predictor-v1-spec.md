@@ -182,7 +182,8 @@ purpose.
   `Nott'm Forest`). An unknown name stops with an error that lists this
   season's teams.
 - Features are built in memory from `matches.csv` on every run, with the
-  same code as the training rows (`features_for`), so they can't go stale.
+  same code as the training rows (`features_and_state` and `rows_for` in
+  `features.py`), so they can't go stale.
 - A game weeks away gets today's ratings and form. Results in between
   aren't simulated.
 - `--date` can't be earlier than the latest result, and a fixture listed
@@ -214,6 +215,7 @@ backend/
   check_ratings.py
   train.py
   evaluate.py
+  metrics.py
   predict.py
   model_settings.json   frozen model settings (milestone 3)
   elo_settings.json

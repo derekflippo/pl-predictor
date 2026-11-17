@@ -97,8 +97,8 @@ unchanged.
 ## Production model
 
 `train.train_final` trains on every finished Premier League match from
-2002-03 with the frozen settings. Milestone 4's `predict.py` calls it
-daily. The weights it prints are the ones the site will use.
+2002-03 with the frozen settings. `predict.py` calls it on every run,
+so the weights `train.py` prints are the ones its predictions use.
 
 ## Rules from now on
 
@@ -120,5 +120,5 @@ daily. The weights it prints are the ones the site will use.
 - **Championship rows** scored slightly better (−0.0008 ± 0.0015) but not
   by the margin the rule asks for. Worth another look if more seasons
   arrive.
-- Gradient boosting and a Poisson goals model come in milestone 8, judged
-  the same way.
+- Gradient boosting and a Poisson goals model were dropped on
+  2026-11-16. Logistic regression is the final model.
