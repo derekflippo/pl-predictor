@@ -158,11 +158,20 @@ def build_features(matches, elo=None, teams=None):
     `elo` defaults to the tuned settings. `teams` ({season: {league: set}})
     adds team names to the per-season lists read from `matches`.
     """
+    return features_and_state(matches, elo, teams)[0]
+
+
+def features_and_state(matches, elo=None, teams=None):
+    """build_features, plus the MatchState after the last match.
+
+    One walk gives both the training rows and the state that rows_for()
+    needs for upcoming games, so predict.py doesn't walk the matches twice.
+    """
     matches = matches.reset_index(drop=True).sort_values("date", kind="stable")
-    _, rows = _walk(matches, elo, _season_teams(matches, teams), collect=True)
+    state, rows = _walk(matches, elo, _season_teams(matches, teams), collect=True)
     features = pd.DataFrame.from_dict(rows, orient="index", columns=FEATURE_COLUMNS)
     table = pd.concat([matches[ID_COLUMNS + TARGET_COLUMNS], features], axis=1)
-    return table.reset_index(drop=True)
+    return table.reset_index(drop=True), state
 
 
 def features_for(games, matches, elo=None, teams=None):
@@ -174,6 +183,11 @@ def features_for(games, matches, elo=None, teams=None):
     """
     matches = matches.reset_index(drop=True).sort_values("date", kind="stable")
     state, _ = _walk(matches, elo, _season_teams(matches, teams), collect=False)
+    return rows_for(games, state)
+
+
+def rows_for(games, state):
+    """Feature rows for unplayed games from a MatchState (see features_for)."""
     games = games.reset_index(drop=True)
     rows = [state.row(g.league, pd.Timestamp(g.date), g.home_team, g.away_team)
             for g in games.itertuples()]

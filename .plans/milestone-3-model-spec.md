@@ -78,6 +78,22 @@ Real results on 2,660 games:
   40–60% happen slightly less often than predicted, and away wins slightly
   more often, because the test seasons had fewer home wins than training.
 
+## Code review fixes, 2026-11-17
+
+A code review found that `tune()` dropped every feature group that passed
+on its own, all at once, without checking the combined drop. The rule now
+drops candidates one at a time, best first, each only if it's still better
+by more than one SE than the features left (`TUNING_RULES` in `train.py`).
+Re-running the fixed `tune()` reproduces the frozen settings exactly:
+`vs_exp` passes first, then `home_advantage`, and the final validation log
+loss is the same 0.95629. `model_settings.json` was not rewritten, so its
+`rule` text is the original wording.
+
+The same review found that saga, the elastic net solver, shuffled rows
+randomly, so runs differed by up to 0.000006 in probability (0.00000003 in
+test log loss). It now uses a fixed seed. The reported numbers are
+unchanged.
+
 ## Production model
 
 `train.train_final` trains on every finished Premier League match from

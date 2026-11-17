@@ -29,6 +29,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from metrics import paired
+
 SETTINGS_PATH = Path(__file__).parent / "elo_settings.json"
 
 LEAGUE_ORDER = ["E0", "E1"]  # top league first
@@ -280,12 +282,6 @@ def run_elo(matches, elo, teams=None):
 # Tuning
 
 
-def _paired(err_a, err_b):
-    """Mean of err_b - err_a and its standard error (per-game pairs)."""
-    d = err_b - err_a
-    return float(d.mean()), float(d.std(ddof=1) / math.sqrt(len(d)))
-
-
 def tune(matches):
     """Score every (K, s, a) on Premier League games from 2002-03 to 2018-19.
 
@@ -329,24 +325,24 @@ def tune(matches):
                    for se in season_list)
 
     for combo in ranked[:10]:
-        diff, se = _paired(errors[best], errors[combo])
+        diff, se = paired(errors[combo], errors[best])
         wins = "" if combo == best else f"{season_wins(combo):>2}/{len(season_list)}"
         lines.append(f"  {combo[0]:>5} {combo[1]:>5} {combo[2]:>5}   {mse[combo]:.5f}   "
                      f"{diff:+.5f} {se:8.5f}   {wins}")
     worst = ranked[-1]
-    diff, se = _paired(errors[best], errors[worst])
+    diff, se = paired(errors[worst], errors[best])
     lines.append(f"  Worst: K={worst[0]}, s={worst[1]}, a={worst[2]}: {mse[worst]:.5f} "
                  f"({diff:+.5f} ± {se:.5f}, best lower in {season_wins(worst)}/{len(season_list)} seasons)")
-    within = [c for c in ranked[1:] if _paired(errors[best], errors[c])[0]
-              < _paired(errors[best], errors[c])[1]]
+    within = [c for c in ranked[1:] if paired(errors[c], errors[best])[0]
+              < paired(errors[c], errors[best])[1]]
     lines.append(f"  {len(within)} combinations are within 1 standard error of the best.")
 
     # Does Championship data help? Best a > 0 against best a = 0, judged on
     # the games a can affect.
     best_flat = min((c for c in mse if c[2] == 0), key=mse.get)
     best_carry = min((c for c in mse if c[2] > 0), key=mse.get)
-    diff_p, se_p = _paired(errors[best_carry][promoted], errors[best_flat][promoted])
-    diff_all, se_all = _paired(errors[best_carry], errors[best_flat])
+    diff_p, se_p = paired(errors[best_flat][promoted], errors[best_carry][promoted])
+    diff_all, se_all = paired(errors[best_flat], errors[best_carry])
     lines += ["", f"Does Championship strength help (a > 0)? "
               f"{promoted.sum()} of the games involve a promoted team.",
               f"  best a = 0: K={best_flat[0]}, s={best_flat[1]}  "

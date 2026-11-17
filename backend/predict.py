@@ -24,7 +24,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-from features import build_features, features_for
+from features import features_and_state, rows_for
 from fixtures import latest_fixtures_file, load_fixtures, upcoming
 from load_data import load_matches
 from train import TRAIN_FROM, add_derived, load_settings, model_features, predict, train_final
@@ -37,9 +37,19 @@ class PredictError(ValueError):
 
 
 def train_model(matches, settings):
-    """Feature rows for every played match, and the model trained on the finished ones."""
-    table = add_derived(build_features(matches))
-    return train_final(table, settings), table
+    """The model trained on every finished match, the feature rows, and the state after them.
+
+    The state (ratings and recent form after the last result) is what
+    predict_games() uses for upcoming games.
+    """
+    table, state = features_and_state(matches)
+    table = add_derived(table)
+    return train_final(table, settings), table, state
+
+
+def latest_result(state):
+    """The date of the last match the state has seen."""
+    return max(state.last_date.values())
 
 
 def favourite(home, away, probs):
@@ -50,14 +60,17 @@ def favourite(home, away, probs):
     return [home, "Draw", away][order[0]]
 
 
-def predict_games(games, matches, model, settings):
+def predict_games(games, state, model, settings):
     """Probabilities for games not played yet.
 
-    `games` needs date, home_team and away_team. Each game gets today's
-    ratings and form (the state after the last result in `matches`).
+    `games` needs date, home_team and away_team. Each game gets the ratings
+    and form in `state`: everything up to the last downloaded result. A game
+    listed before that date (postponed, say) is treated as played on it, so
+    rest days are never negative.
     """
     games = games.reset_index(drop=True)
-    rows = add_derived(features_for(games.assign(league="E0"), matches))
+    dates = games["date"].clip(lower=latest_result(state))
+    rows = add_derived(rows_for(games.assign(league="E0", date=dates), state))
     probs = predict(model, rows, model_features(settings))
     out = games.copy()
     out[["p_home", "p_draw", "p_away"]] = probs
@@ -79,6 +92,31 @@ def check_season(fixtures, matches):
             f"No {season} results yet. Predictions start once the season's first "
             "results are downloaded, because promoted and relegated teams' ratings "
             "are converted at their first game.")
+
+
+def check_date(day, latest):
+    """Stop if a named game's date is before the last result.
+
+    The ratings and form already include every downloaded result, so a
+    prediction "as if played" earlier would use games from after it.
+    """
+    if day < latest.date():
+        raise PredictError(f"--date must be on or after the latest result, "
+                           f"{latest:%d %b %Y}: the ratings and form already include "
+                           "every game up to then.")
+
+
+def missing_results(fixtures, matches, today):
+    """Fixtures listed after the latest result and before today, with no result.
+
+    These are almost always games played since the last download. Games
+    listed before the latest result and still unplayed are left out: they
+    were usually postponed.
+    """
+    todo = upcoming(fixtures, matches[matches["league"] == "E0"])
+    latest = matches["date"].max()
+    listed = todo["date"]
+    return todo[(listed > latest) & (listed.dt.date < today)].reset_index(drop=True)
 
 
 def next_games(fixtures, matches, today, matchweek=None):
@@ -138,6 +176,7 @@ def main():
             check_season(fixtures, matches)
         if args.home:
             check_teams(args.home, args.away, season_teams(matches))
+            check_date(args.date, matches["date"].max())
             games = pd.DataFrame({"date": [pd.Timestamp(args.date)],
                                   "home_team": [args.home], "away_team": [args.away]})
             title = f"{args.home} v {args.away}, as if played on {args.date:%d %b %Y}"
@@ -149,14 +188,20 @@ def main():
     except PredictError as e:
         raise SystemExit(str(e))
 
+    if fixtures is not None:
+        missing = missing_results(fixtures, matches, date.today())
+        if len(missing):
+            print(f"Warning: {len(missing)} game(s) listed between the latest result and today "
+                  "have no result yet. Run download_data.py and load_data.py first, so the "
+                  "ratings and form include them.\n")
     settings = load_settings()
-    model, table = train_model(matches, settings)
+    model, table, state = train_model(matches, settings)
     trained = table[(table["season"] >= TRAIN_FROM) & table["result"].notna()
                     & (table["league"] == "E0")]
     print(f"Trained on {len(trained):,} Premier League matches, {trained['season'].min()} "
           f"to {trained['season'].max()}. Latest result: {matches['date'].max():%d %b %Y}.")
     print(f"\n{title}")
-    show(predict_games(games, matches, model, settings))
+    show(predict_games(games, state, model, settings))
     if not args.home:
         print("\nKickoff times are UK time. openfootball lists Saturday 15:00 until "
               "TV picks are made.")

@@ -60,7 +60,9 @@ python backend/fixtures.py        # this season's fixtures matched to results, a
 ```
 
 Run `download_data.py` again after each matchweek to get the latest
-results. Past seasons are only downloaded once.
+results. Past seasons are only downloaded once. Each file is checked
+before it's saved, so an error page from the server is never kept as a
+season's results.
 
 `backend/data/` is not committed to git. Anyone who clones the repo
 rebuilds it with the commands above.
@@ -160,7 +162,11 @@ Matchweek 11, 2026-27
 ```
 
 - Run `download_data.py` and `load_data.py` again after each matchweek, so
-  ratings and form include the latest results.
+  ratings and form include the latest results. `predict.py` warns when
+  games listed since the latest result have no result yet.
+- `--date` can't be earlier than the latest result: the ratings and form
+  already include every game up to then. A postponed fixture listed
+  before that date is predicted as if played on it.
 - Team names are football-data's: `Man United`, `Nott'm Forest`. A wrong
   name stops with a list of this season's teams.
 - A game weeks away gets today's ratings and form.

@@ -24,13 +24,25 @@ import numpy as np
 import pandas as pd
 
 from load_data import DATA_DIR
-from train import (OUTCOMES, TEST, VALIDATE, base_rate_predictor, before_test,
-                   bookmaker_predictor, calibration, elo_only_predictor, load_settings,
-                   load_table, match_scores, model_predictor, paired, summarize, walk_forward)
+from metrics import (OUTCOMES, base_rates, bookmaker_probs, calibration, match_scores, paired,
+                     summarize)
+from train import (ELO_ONLY_SETTINGS, TEST, VALIDATE, before_test, load_settings, load_table,
+                   model_predictor, walk_forward)
 
 NAMES = {"model": "Model", "elo_only": "Elo only", "base_rates": "Average shares",
          "bookmakers": "Bookmakers"}
 RESULTS_PATH = DATA_DIR / "evaluation.json"
+
+# Baselines, as fit_predict functions for train.walk_forward
+elo_only_predictor = model_predictor(ELO_ONLY_SETTINGS)
+
+
+def base_rate_predictor(train, rows):
+    return base_rates(train[train["league"] == "E0"], len(rows))
+
+
+def bookmaker_predictor(train, rows):
+    return bookmaker_probs(rows)
 
 
 def compare(table, seasons, settings):

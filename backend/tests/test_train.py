@@ -3,10 +3,10 @@ import pandas as pd
 import pytest
 
 from load_data import DATA_DIR
-from train import (C_GRID, GROUPS, MODEL_FEATURES, OUTCOMES, TEST, TRAIN_FROM, VALIDATE,
-                   add_derived, before_test, bookmaker_probs, clearly_better, fit, load_settings,
-                   load_table, make_model, match_scores, model_features, one_se_choice, paired,
-                   predict, train_final, walk_forward)
+from metrics import OUTCOMES
+from train import (C_GRID, DEFAULT_SETTINGS, GROUPS, MODEL_FEATURES, TEST, TRAIN_FROM, VALIDATE,
+                   add_derived, before_test, clearly_better, fit, load_settings, load_table,
+                   model_features, one_se_choice, predict, train_final, tune, walk_forward)
 
 HAVE_FEATURES = (DATA_DIR / "features.csv").exists()
 
@@ -95,26 +95,12 @@ def test_elastic_net_sets_weak_weights_to_zero_and_l2_does_not():
     assert (l2.coef_ != 0).all()
 
 
-def test_bookmaker_probabilities_remove_the_margin():
-    rows = pd.DataFrame({"odds_home": [2.0], "odds_draw": [3.5], "odds_away": [4.0]})
-    probs = bookmaker_probs(rows)[0]
-    implied = np.array([1 / 2.0, 1 / 3.5, 1 / 4.0])  # adds up to 1.036: a 3.6% margin
-    assert probs.sum() == pytest.approx(1)
-    assert probs == pytest.approx(implied / implied.sum())
-
-
-def test_match_scores_hand_example():
-    scores = match_scores(["H", "A"], np.array([[0.5, 0.3, 0.2], [0.5, 0.3, 0.2]]))
-    assert scores["log_loss"].tolist() == pytest.approx([-np.log(0.5), -np.log(0.2)])
-    # H happened: (0.5-1)^2 + 0.3^2 + 0.2^2 = 0.38. A happened: 0.5^2 + 0.3^2 + 0.8^2 = 0.98
-    assert scores["brier"].tolist() == pytest.approx([0.38, 0.98])
-    assert scores["correct"].tolist() == [True, False]
-
-
-def test_paired_difference_and_standard_error():
-    mean, se = paired([1.0, 2.0, 3.0], [0.0, 1.0, 1.0])
-    assert mean == pytest.approx(4 / 3)
-    assert se == pytest.approx(np.std([1, 1, 2], ddof=1) / np.sqrt(3))
+def test_elastic_net_gives_the_same_model_every_run():
+    rows = toy_rows(n=400)
+    rows["noise"] = np.random.default_rng(1).normal(size=len(rows))
+    a = fit(rows, ["x", "noise"], c=0.5, l1_ratio=0.5)[-1].coef_
+    b = fit(rows, ["x", "noise"], c=0.5, l1_ratio=0.5)[-1].coef_
+    assert (a == b).all()
 
 
 def test_filling_and_scaling_use_training_rows_only():
@@ -152,3 +138,31 @@ def test_final_model_trains_on_finished_premier_league_matches():
     rows = table[(table["league"] == "E0") & (table["season"] == VALIDATE[0])]
     probs = predict(model, rows, model_features(settings))
     assert probs.sum(axis=1) == pytest.approx(np.ones(len(rows)))
+
+
+def test_tuning_checks_each_dropped_group_against_what_is_left():
+    """Two feature groups that each help to remove alone, but hurt removed together:
+    tune() must drop only one of them."""
+    wobble = np.r_[0.01, -0.01].repeat(500)  # per-game noise, the same in every run
+    rest, promoted = set(GROUPS["rest days"]), set(GROUPS["promoted (came_up)"])
+
+    def score(table, settings):
+        features = set(settings["features"])
+        loss = 1.0 + 0.002 * abs(np.log10(settings["c"]) + 2)  # best C is 0.01
+        loss += 0.01 * (settings["l1_ratio"] is not None) + 0.01 * settings["championship_rows"]
+        gone = set(DEFAULT_SETTINGS["features"]) - features
+        rest_gone, promoted_gone = rest <= gone, promoted <= gone
+        if rest_gone and promoted_gone:
+            loss += 0.004
+        elif rest_gone or promoted_gone:
+            loss -= 0.005
+        loss += 0.003 * len(gone - rest - promoted)  # every other group helps
+        return loss + wobble
+
+    settings, record = tune(pd.DataFrame({"season": ["2010-11"]}), log=lambda *a: None,
+                            score=score)
+    assert record["drop_candidates"] == ["promoted (came_up)", "rest days"]
+    assert record["dropped_groups"] == ["promoted (came_up)"]
+    assert promoted.isdisjoint(settings["features"]) and rest <= set(settings["features"])
+    assert settings["c"] == 0.01 and settings["l1_ratio"] is None
+    assert not settings["championship_rows"]
