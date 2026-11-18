@@ -32,7 +32,11 @@ pytest                            # data-dependent tests skip without downloads
   deprecated `penalty`. Both give the same model. Elastic net uses the
   saga solver with a fixed seed (`train.SEED`), so every run gives exactly
   the same model.
-- `app.py` only calls `predict.py`'s functions and `download_data.download_all`;
+- `explain.py` reads a trained model: `weight_table`, `elo_curve` and
+  `contributions` (each input's push toward a home or away win; with the
+  intercept they add up to log(P(home) / P(away)), and a test checks it).
+- `app.py` only calls `predict.py`'s functions, `explain.py` and
+  `download_data.download_all`;
   keep the logic in those modules so the CLI and the page always agree.
   Its tests use Streamlit's AppTest and skip without streamlit or data.
 - Scores and the no-model baselines (log loss, Brier, paired SE,

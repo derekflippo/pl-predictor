@@ -60,17 +60,26 @@ def favourite(home, away, probs):
     return [home, "Draw", away][order[0]]
 
 
+def feature_rows(games, state):
+    """The model's input rows for unplayed games, from the ratings and form in `state`.
+
+    A game listed before the last result (postponed, say) is treated as
+    played on that date, so rest days are never negative.
+    """
+    games = games.reset_index(drop=True)
+    dates = games["date"].clip(lower=latest_result(state))
+    return add_derived(rows_for(games.assign(league="E0", date=dates), state))
+
+
 def predict_games(games, state, model, settings):
     """Probabilities for games not played yet.
 
     `games` needs date, home_team and away_team. Each game gets the ratings
-    and form in `state`: everything up to the last downloaded result. A game
-    listed before that date (postponed, say) is treated as played on it, so
-    rest days are never negative.
+    and form in `state`: everything up to the last downloaded result (see
+    feature_rows).
     """
     games = games.reset_index(drop=True)
-    dates = games["date"].clip(lower=latest_result(state))
-    rows = add_derived(rows_for(games.assign(league="E0", date=dates), state))
+    rows = feature_rows(games, state)
     probs = predict(model, rows, model_features(settings))
     out = games.copy()
     out[["p_home", "p_draw", "p_away"]] = probs
