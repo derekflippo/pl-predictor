@@ -221,6 +221,7 @@ backend/
   metrics.py
   predict.py
   app.py                local Streamlit page (requirements-app.txt)
+  explain.py            weights, Elo curve and per-match explanations for the page
   model_settings.json   frozen model settings (milestone 3)
   elo_settings.json
   tests/

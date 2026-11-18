@@ -75,9 +75,15 @@ pip install -r backend/requirements-app.txt
 streamlit run backend/app.py
 ```
 
-It opens in your browser with two tabs: **Upcoming matchweek** (pick any
-matchweek; each game shows the three probabilities as bars and the
-favourite) and **Any match** (pick a home team, an away team and a date).
+It opens in your browser with three tabs:
+
+- **Upcoming matchweek:** pick any matchweek; each game shows the three
+  probabilities as bars and the favourite.
+- **Any match:** pick a home team, an away team and a date. A "Why this
+  prediction?" chart shows the 10 inputs that pushed it most toward a
+  home or an away win.
+- **Model:** how the home, draw and away probabilities change with the
+  Elo gap (everything else at its average), and every input's weight.
 The **Update data** button downloads the latest results, so you don't
 need the command line at all. The model trains once when the page starts
 (about 8 seconds); after that every prediction is instant.
@@ -168,6 +174,7 @@ backend/
   metrics.py         log loss, Brier score, calibration
   predict.py         retrains and predicts upcoming games
   app.py             the same predictions as a local Streamlit page
+  explain.py         the model's weights, its Elo curve, and why it predicted a match
   tests/
 notebooks/           evaluation.ipynb: charts of the results
 docs/                methodology.html: the method explained step by step
